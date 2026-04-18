@@ -106,6 +106,16 @@ class TelegramBot:
 
         return result["result"]
 
+    def download_file(self, file_id: str):
+        # 1. Obtener la ruta del archivo
+        file_info = self("getFile", params={"file_id": file_id})
+        file_path = file_info["file_path"]
+        # 2. Descargar el archivo de los servidores de Telegram
+        # Reemplazamos /bot por /file/bot en la URL de descarga
+        download_url = self.base_url.replace("/bot", "/file/bot")
+        resp = httpx.get(f"{download_url}/{file_path}", timeout=None)
+        return resp.content, file_path.split("/")[-1]
+
 class APIMethod:
     OUTPUT_NODE = True
 
@@ -618,3 +628,113 @@ class SendChatAction:
     def get_return_types(self, trigger_type, **kwargs):
         return ("BOOL", trigger_type)
 
+
+class GetMessages:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "bot": inputs.bot,
+                "filter": inputs.update_type,
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT")
+    RETURN_NAMES = ("text", "image", "video_path", "chat_id")
+    FUNCTION = "fetch"
+    CATEGORY = "Telegram Suite 🔽/receive"
+
+    def fetch(self, bot: TelegramBot, filter):
+        import torch
+        import os
+        # offset -1 para leer solo el último mensaje
+        updates = bot("getUpdates", params={"limit": 1, "offset": -1})
+        if not updates:
+            return ("", torch.zeros((1, 64, 64, 3)), "", 0)
+
+        msg = updates[0].get("message", {})
+        chat_id = msg.get("chat", {}).get("id", 0)
+
+        text = msg.get("text", "")
+        image = torch.zeros((1, 64, 64, 3))
+        video_path = ""
+
+        # Lógica de descarga según el contenido
+        if "photo" in msg and filter in ["All", "Photo"]:
+            file_id = msg["photo"][-1]["file_id"] # La de mayor resolución
+            b, _ = bot.download_file(file_id)
+            image = utils.bytes_to_image(b)
+
+        if "video" in msg and filter in ["All", "Video"]:
+            file_id = msg["video"]["file_id"]
+            b, name = bot.download_file(file_id)
+            # Guardamos temporalmente para que Comfy lo lea
+            temp_path = os.path.join(os.getcwd(), "temp", name)
+            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            with open(temp_path, "wb") as f:
+                f.write(b)
+            video_path = temp_path
+
+        return (text, image, video_path, chat_id)
+
+class SendMessageButtons(SendGeneric):
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "bot": inputs.bot,
+                "chat_id": inputs.chat_id,
+                "text": inputs.text,
+                "buttons": inputs.buttons,
+            }
+        }
+
+    FUNCTION = "send_menu"
+
+    def send_menu(self, bot: TelegramBot, text, buttons, chat_id, **kwargs):
+        # Convertimos "Nombre:data" en estructura JSON de botones
+        keyboard = []
+        for btn in buttons.split(","):
+            if ":" in btn:
+                label, data = btn.split(":")
+                keyboard.append([{"text": label.strip(), "callback_data": data.strip()}])
+
+        params = {
+            "chat_id": chat_id,
+            "text": text,
+            "reply_markup": {"inline_keyboard": keyboard}
+        }
+
+        message = bot("sendMessage", params=params)
+        return message, message["message_id"], None
+
+class GetCallbackQuery:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "bot": inputs.bot,
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "INT", "DICT")
+    RETURN_NAMES = ("button_data", "chat_id", "raw_update")
+    FUNCTION = "get_click"
+    CATEGORY = "Telegram Suite 🔽/receive"
+
+    def get_click(self, bot: TelegramBot):
+        # Buscamos actualizaciones de tipo 'callback_query'
+        updates = bot("getUpdates", params={"limit": 1, "offset": -1, "allowed_updates": ["callback_query"]})
+
+        if updates and "callback_query" in updates[0]:
+            query = updates[0]["callback_query"]
+            data = query.get("data", "") # El 'comando' que pusimos en el botón
+            chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
+
+            # 💡 Opcional: Responder a Telegram que hemos recibido el clic (quita el reloj de carga en el botón)
+            bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
+
+            utils.log(f"🔘 Botón pulsado: {data} por {chat_id}")
+            return (data, chat_id, query)
+
+        return ("", 0, {})
