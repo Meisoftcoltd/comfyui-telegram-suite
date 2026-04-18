@@ -87,7 +87,12 @@ class TelegramBot:
             if v # is not None
         } if params else None
 
-        result = httpx.post(f"{self.base_url}/{method_name}", data=params or None, files=files or None).json()
+        result = httpx.post(
+            f"{self.base_url}/{method_name}",
+            data=params or None,
+            files=files or None,
+            timeout=None
+        ).json()
 
         if not result["ok"]:
             if debug:
