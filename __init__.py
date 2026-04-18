@@ -21,6 +21,9 @@ NODE_CLASS_MAPPINGS = {
         "EditMessageAudio": telegram.EditMessageAudio,
 
         "ParseJSON": utils.ParseJSON,
+        "GetMessages": telegram.GetMessages,
+        "SendMessageButtons": telegram.SendMessageButtons,
+        "GetCallbackQuery": telegram.GetCallbackQuery,
         
         **converters.type_mapping
     }.items()
@@ -43,6 +46,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
         "EditMessageAudio": "Edit Message Audio",
 
         "ParseJSON": "Parse JSON",
+        "GetMessages": "Telegram Get Messages",
+        "SendMessageButtons": "Telegram Send Menu",
+        "GetCallbackQuery": "Telegram Get Callback Query",
 
         **converters.name_mapping
     }.items()

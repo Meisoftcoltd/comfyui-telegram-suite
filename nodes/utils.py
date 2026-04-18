@@ -139,3 +139,15 @@ class ParseJSON:
     def parse_json(self, json_string):
         return (json.loads(json_string),)
 
+
+def bytes_to_image(image_bytes: bytes):
+    from PIL import Image, ImageOps
+    import numpy as np
+    import torch
+
+    img = Image.open(io.BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)
+    image = img.convert("RGB")
+    image = np.array(image).astype(np.float32) / 255.0
+    image = torch.from_numpy(image)[None,]
+    return image

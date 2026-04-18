@@ -136,3 +136,16 @@ def file_name(default: str):
         "default": default,
         "tooltip": "the file name for this media"
     })
+# Para los menús de botones
+buttons = ("STRING", {
+    "default": "Opción 1, Opción 2, Opción 3",
+    "multiline": True,
+    "placeholder": "Nombre Botón 1:data1, Nombre Botón 2:data2",
+    "tooltip": "Formato: 'Texto:Comando' separados por comas. Ejemplo: 'Generar:gen, Cancelar:stop'"
+})
+
+# Para controlar qué buscamos al recibir
+update_type = (["All", "Text", "Photo", "Video"], {
+    "default": "All",
+    "tooltip": "Filtrar el tipo de mensaje que queremos capturar."
+})
