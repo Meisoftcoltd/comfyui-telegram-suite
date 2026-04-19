@@ -1,6 +1,6 @@
 from colorama import Fore
 
-from .nodes import telegram 
+from .nodes import telegram
 from .nodes import utils
 from .nodes import converters
 
@@ -21,10 +21,10 @@ NODE_CLASS_MAPPINGS = {
         "EditMessageAudio": telegram.EditMessageAudio,
 
         "ParseJSON": utils.ParseJSON,
-        "GetMessages": telegram.GetMessages,
+        "WaitForMessage": telegram.WaitForMessage,
         "SendMessageButtons": telegram.SendMessageButtons,
-        "GetCallbackQuery": telegram.GetCallbackQuery,
-        
+        "WaitForCallbackQuery": telegram.WaitForCallbackQuery,
+
         **converters.type_mapping
     }.items()
 }
@@ -46,9 +46,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
         "EditMessageAudio": "Edit Message Audio",
 
         "ParseJSON": "Parse JSON",
-        "GetMessages": "Telegram Get Messages",
-        "SendMessageButtons": "Telegram Send Menu",
-        "GetCallbackQuery": "Telegram Get Callback Query",
+        "WaitForMessage": "Wait For Message",
+        "SendMessageButtons": "Send Menu (Buttons)",
+        "WaitForCallbackQuery": "Wait For Button Click",
 
         **converters.name_mapping
     }.items()
@@ -61,8 +61,8 @@ CUSTOM_NODE_INPUT_TYPES = {
 }
 
 __all__ = (
-    "NODE_CLASS_MAPPINGS", 
-    "NODE_DISPLAY_NAME_MAPPINGS", 
+    "NODE_CLASS_MAPPINGS",
+    "NODE_DISPLAY_NAME_MAPPINGS",
     "CUSTOM_NODE_INPUT_TYPES",
 )
 
