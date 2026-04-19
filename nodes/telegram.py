@@ -781,6 +781,7 @@ class SendMessageButtons(SendGeneric):
                 "chat_id": inputs.chat_id,
                 "text": inputs.text,
                 "buttons": inputs.buttons,
+                "columns": inputs.menu_columns,
             },
             "optional": {
                 "trigger": inputs.trigger,
@@ -789,12 +790,17 @@ class SendMessageButtons(SendGeneric):
 
     FUNCTION = "send_menu"
 
-    def send_menu(self, bot: TelegramBot, text, buttons, chat_id, trigger=None, **kwargs):
-        keyboard = []
+    def send_menu(self, bot: TelegramBot, text, buttons, columns, chat_id, trigger=None, **kwargs):
+        # 1. Extraemos todos los botones en una lista plana
+        flat_buttons = []
         for btn in buttons.split(","):
             if ":" in btn:
-                label, data = btn.split(":")
-                keyboard.append([{"text": label.strip(), "callback_data": data.strip()}])
+                # Usamos split(":", 1) por si los datos contienen más de dos puntos
+                label, data = btn.split(":", 1)
+                flat_buttons.append({"text": label.strip(), "callback_data": data.strip()})
+
+        # 2. Agrupamos la lista plana en filas según el número de columnas (Chunking)
+        keyboard = [flat_buttons[i:i + columns] for i in range(0, len(flat_buttons), columns)]
 
         params = {
             "chat_id": chat_id,

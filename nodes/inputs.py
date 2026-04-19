@@ -149,3 +149,11 @@ update_type = (["All", "Text", "Photo", "Video"], {
     "default": "All",
     "tooltip": "Filtrar el tipo de mensaje que queremos capturar."
 })
+
+menu_columns = ("INT", {
+    "default": 1,
+    "min": 1,
+    "max": 8,
+    "step": 1,
+    "tooltip": "Number of columns for the inline keyboard layout."
+})
