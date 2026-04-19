@@ -7,6 +7,9 @@ import time
 import os
 import torch
 
+from server import PromptServer
+from aiohttp import web
+
 import httpx
 from colorama import Fore
 
@@ -17,6 +20,19 @@ from . import inputs
 logger = logging.getLogger("httpx").setLevel(logging.CRITICAL)
 
 debug = True
+
+# Buzón global para almacenar las llamadas de n8n
+N8N_WEBHOOK_MAILBOX = []
+
+# Endpoint API de ComfyUI. Se adapta automáticamente al puerto del usuario (8188, 8189, etc.)
+@PromptServer.instance.routes.post("/n8n_telegram_webhook")
+async def n8n_webhook(request):
+    try:
+        data = await request.json()
+        N8N_WEBHOOK_MAILBOX.append(data)
+        return web.json_response({"status": "ok", "message": "Payload recibido por ComfyUI"})
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)}, status=400)
 
 _CAT_SEND = "Telegram Suite 🔽/1. 📤 Send"
 _CAT_RECEIVE = "Telegram Suite 🔽/2. 📥 Receive"
@@ -642,71 +658,119 @@ class WaitForMessage:
         return {
             "required": {
                 "bot": inputs.bot,
-                "filter": inputs.update_type, # All, Text, Photo, Video
+                "filter": inputs.update_type,
+                "mode": (["long_polling", "n8n_webhook"], {"default": "long_polling", "tooltip": "Use n8n_webhook if sharing the bot token with n8n."}),
+                "timeout": ("INT", {"default": 600, "min": 10, "max": 3600, "step": 1, "tooltip": "Max wait time in seconds"}),
+            },
+            "optional": {
+                "trigger": inputs.trigger,
             }
         }
 
-    RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT")
-    RETURN_NAMES = ("text", "image", "video_path", "chat_id")
+    RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT", "*")
+    RETURN_NAMES = ("text", "image", "video_path", "chat_id", "trigger")
     FUNCTION = "wait_for_msg"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_msg(self, bot: TelegramBot, filter):
-        utils.log("⏳ Esperando nuevo mensaje de Telegram...")
+    def wait_for_msg(self, bot: TelegramBot, filter, mode, timeout, trigger=None):
+        start_time = time.time()
 
-        # 1. Descartar mensajes antiguos (Limpiar buffer)
-        latest = bot("getUpdates", params={"limit": 1, "offset": -1})
-        next_offset = (latest[0]["update_id"] + 1) if latest else None
+        if mode == "n8n_webhook":
+            utils.log(f"⏳ [n8n Mode] Waiting for message via /n8n_telegram_webhook... (Timeout: {timeout}s)")
+            N8N_WEBHOOK_MAILBOX.clear()
 
-        # 2. Bucle de espera activa (Long Polling)
-        while True:
-            params = {"timeout": 30, "allowed_updates": ["message"]}
-            if next_offset:
-                params["offset"] = next_offset
+            while True:
+                if len(N8N_WEBHOOK_MAILBOX) > 0:
+                    data = N8N_WEBHOOK_MAILBOX.pop(0)
 
-            updates = bot("getUpdates", params=params)
+                    text = data.get("text", "")
+                    chat_id = data.get("chat_id", 0)
+                    photo_file_id = data.get("photo_file_id", "")
+                    video_file_id = data.get("video_file_id", "")
 
-            if updates:
-                for update in updates:
-                    next_offset = update["update_id"] + 1
-                    msg = update.get("message", {})
-
-                    if not msg:
-                        continue
-
-                    # Verificar si coincide con el filtro
-                    has_text = "text" in msg
-                    has_photo = "photo" in msg
-                    has_video = "video" in msg
+                    has_text = bool(text)
+                    has_photo = bool(photo_file_id)
+                    has_video = bool(video_file_id)
 
                     if filter == "Text" and not has_text: continue
                     if filter == "Photo" and not has_photo: continue
                     if filter == "Video" and not has_video: continue
 
-                    # Procesar el mensaje recibido
-                    chat_id = msg.get("chat", {}).get("id", 0)
-                    text = msg.get("text", msg.get("caption", ""))
                     image = torch.zeros((1, 64, 64, 3))
                     video_path = ""
 
                     if has_photo and filter in ["All", "Photo"]:
-                        file_id = msg["photo"][-1]["file_id"]
-                        b, _ = bot.download_file(file_id)
+                        b, _ = bot.download_file(photo_file_id)
                         image = utils.bytes_to_image(b)
 
                     if has_video and filter in ["All", "Video"]:
-                        file_id = msg["video"]["file_id"]
-                        b, name = bot.download_file(file_id)
+                        b, name = bot.download_file(video_file_id)
                         temp_path = os.path.join(os.getcwd(), "temp", name)
                         os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                         with open(temp_path, "wb") as f:
                             f.write(b)
                         video_path = temp_path
 
-                    utils.log(f"✅ Mensaje capturado del chat {chat_id}")
-                    return (text, image, video_path, chat_id)
+                    utils.log(f"✅ [n8n] Message processed for chat {chat_id}")
+                    return (text, image, video_path, chat_id, trigger)
 
-            time.sleep(1) # Seguridad para no saturar la CPU
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: No message received from n8n.")
+                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger)
+                time.sleep(1)
+
+        else: # long_polling mode
+            utils.log(f"⏳ [Polling Mode] Waiting for direct Telegram message... (Timeout: {timeout}s)")
+            latest = bot("getUpdates", params={"limit": 1, "offset": -1})
+            next_offset = (latest[0]["update_id"] + 1) if latest else None
+
+            while True:
+                params = {"timeout": 30, "allowed_updates": ["message"]}
+                if next_offset: params["offset"] = next_offset
+
+                updates = bot("getUpdates", params=params)
+
+                if updates:
+                    for update in updates:
+                        next_offset = update["update_id"] + 1
+                        msg = update.get("message", {})
+
+                        if not msg: continue
+
+                        has_text = "text" in msg or "caption" in msg
+                        has_photo = "photo" in msg
+                        has_video = "video" in msg
+
+                        if filter == "Text" and not has_text: continue
+                        if filter == "Photo" and not has_photo: continue
+                        if filter == "Video" and not has_video: continue
+
+                        chat_id = msg.get("chat", {}).get("id", 0)
+                        text = msg.get("text", msg.get("caption", ""))
+                        image = torch.zeros((1, 64, 64, 3))
+                        video_path = ""
+
+                        if has_photo and filter in ["All", "Photo"]:
+                            file_id = msg["photo"][-1]["file_id"]
+                            b, _ = bot.download_file(file_id)
+                            image = utils.bytes_to_image(b)
+
+                        if has_video and filter in ["All", "Video"]:
+                            file_id = msg["video"]["file_id"]
+                            b, name = bot.download_file(file_id)
+                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                            with open(temp_path, "wb") as f:
+                                f.write(b)
+                            video_path = temp_path
+
+                        utils.log(f"✅ [Polling] Message captured from chat {chat_id}")
+                        return (text, image, video_path, chat_id, trigger)
+
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: No direct messages in Telegram.")
+                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger)
+                time.sleep(1)
 
 class SendMessageButtons(SendGeneric):
     @classmethod
@@ -747,39 +811,62 @@ class WaitForCallbackQuery:
         return {
             "required": {
                 "bot": inputs.bot,
+                "mode": (["long_polling", "n8n_webhook"], {"default": "long_polling", "tooltip": "Usa long_polling si este bot es exclusivo de ComfyUI. Usa n8n_webhook si compartes el bot."}),
+                "timeout": ("INT", {"default": 600, "min": 10, "max": 3600, "step": 1, "tooltip": "Tiempo máximo de espera en segundos"}),
+            },
+            "optional": {
+                "trigger": inputs.trigger, # Entrada de activación obligatoria para frenar el flujo
             }
         }
 
-    RETURN_TYPES = ("STRING", "INT", "DICT")
-    RETURN_NAMES = ("button_data", "chat_id", "raw_update")
+    RETURN_TYPES = ("STRING", "INT", "DICT", "*")
+    RETURN_NAMES = ("button_data", "chat_id", "raw_update", "trigger")
     FUNCTION = "wait_for_click"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_click(self, bot: TelegramBot):
-        utils.log("⏳ Esperando clic en un botón del menú...")
+    def wait_for_click(self, bot: TelegramBot, mode, timeout, trigger=None):
+        start_time = time.time()
 
-        latest = bot("getUpdates", params={"limit": 1, "offset": -1})
-        next_offset = (latest[0]["update_id"] + 1) if latest else None
+        if mode == "n8n_webhook":
+            utils.log(f"⏳ [Modo n8n] Esperando señal en el endpoint /n8n_telegram_webhook... (Timeout: {timeout}s)")
+            N8N_WEBHOOK_MAILBOX.clear()
 
-        while True:
-            params = {"timeout": 30, "allowed_updates": ["callback_query"]}
-            if next_offset:
-                params["offset"] = next_offset
+            while True:
+                if len(N8N_WEBHOOK_MAILBOX) > 0:
+                    data = N8N_WEBHOOK_MAILBOX.pop(0)
+                    button_data = data.get("button_data", "")
+                    chat_id = data.get("chat_id", 0)
+                    utils.log(f"✅ [n8n] Clic recibido: {button_data}")
+                    return (button_data, chat_id, data, trigger)
 
-            updates = bot("getUpdates", params=params)
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: n8n no respondió.")
+                    return ("TIMEOUT", 0, {}, trigger)
+                time.sleep(1)
 
-            if updates:
-                for update in updates:
-                    next_offset = update["update_id"] + 1
-                    if "callback_query" in update:
-                        query = update["callback_query"]
-                        data = query.get("data", "")
-                        chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
+        else: # Modo long_polling original
+            utils.log(f"⏳ [Modo Polling] Esperando clic directo de Telegram... (Timeout: {timeout}s)")
+            latest = bot("getUpdates", params={"limit": 1, "offset": -1})
+            next_offset = (latest[0]["update_id"] + 1) if latest else None
 
-                        # Responder a Telegram para quitar el icono de "reloj" del botón
-                        bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
+            while True:
+                params = {"timeout": 30, "allowed_updates": ["callback_query"]}
+                if next_offset: params["offset"] = next_offset
 
-                        utils.log(f"🔘 Clic detectado: {data}")
-                        return (data, chat_id, query)
+                updates = bot("getUpdates", params=params)
 
-            time.sleep(1)
+                if updates:
+                    for update in updates:
+                        next_offset = update["update_id"] + 1
+                        if "callback_query" in update:
+                            query = update["callback_query"]
+                            data = query.get("data", "")
+                            chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
+                            bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
+                            utils.log(f"🔘 [Polling] Clic detectado: {data}")
+                            return (data, chat_id, query, trigger)
+
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: No hubo clics en Telegram.")
+                    return ("TIMEOUT", 0, {}, trigger)
+                time.sleep(1)
