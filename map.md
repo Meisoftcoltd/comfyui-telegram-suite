@@ -26,9 +26,9 @@ NODE_CLASS_MAPPINGS = {
         "EditMessageAudio": telegram.EditMessageAudio,
 
         "ParseJSON": utils.ParseJSON,
-        "GetMessages": telegram.GetMessages,
+        "WaitForMessage": telegram.WaitForMessage,
         "SendMessageButtons": telegram.SendMessageButtons,
-        "GetCallbackQuery": telegram.GetCallbackQuery,
+        "WaitForCallbackQuery": telegram.WaitForCallbackQuery,
 
         **converters.type_mapping
     }.items()
@@ -51,9 +51,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
         "EditMessageAudio": "Edit Message Audio",
 
         "ParseJSON": "Parse JSON",
-        "GetMessages": "Telegram Get Messages",
-        "SendMessageButtons": "Telegram Send Menu",
-        "GetCallbackQuery": "Telegram Get Callback Query",
+        "WaitForMessage": "Wait For Message",
+        "SendMessageButtons": "Send Menu (Buttons)",
+        "WaitForCallbackQuery": "Wait For Button Click",
 
         **converters.name_mapping
     }.items()
@@ -546,6 +546,10 @@ import logging
 import mimetypes
 from typing import Any
 
+import time
+import os
+import torch
+
 import httpx
 from colorama import Fore
 
@@ -557,7 +561,10 @@ logger = logging.getLogger("httpx").setLevel(logging.CRITICAL)
 
 debug = True
 
-_CATEGORY = "Telegram Suite 🔽"
+_CAT_SEND = "Telegram Suite 🔽/1. 📤 Send"
+_CAT_RECEIVE = "Telegram Suite 🔽/2. 📥 Receive"
+_CAT_EDIT = "Telegram Suite 🔽/3. ✏️ Edit"
+_CAT_UTILS = "Telegram Suite 🔽/4. ⚙️ Utils"
 DEFAULT_API_URL = "https://api.telegram.org"
 
 config = utils.load_config()
@@ -596,7 +603,7 @@ class TelegramBot:
     RETURN_NAMES = ("bot", "chat_id")
 
     FUNCTION = "init_telegram_bot"
-    CATEGORY = _CATEGORY
+    CATEGORY = _CAT_UTILS
 
     @classmethod
     def IS_CHANGED(cls, *args, **kwargs):
@@ -683,7 +690,7 @@ class APIMethod:
     RETURN_NAMES = ("RESULT *",)
 
     FUNCTION = "call_api_method"
-    CATEGORY = f"{_CATEGORY}/experimental"
+    CATEGORY = _CAT_UTILS
 
     def call_api_method(self, bot: TelegramBot, method_name, chat_id=None, params=None):
         params = params if params else {}
@@ -697,7 +704,7 @@ class SendGeneric:
     RETURN_TYPES = ("DICT", "INT", "*")
     RETURN_NAMES = ("message", "message_id", "trigger")
 
-    CATEGORY = _CATEGORY
+    CATEGORY = _CAT_UTILS
 
     @classmethod
     def IS_CHANGED(cls, *args, **kwargs):
@@ -950,7 +957,7 @@ class EditMessageText(SendGeneric):
                 "trigger": inputs.trigger
             }
         }
-    CATEGORY = f"{_CATEGORY}/edit"
+    CATEGORY = _CAT_EDIT
     FUNCTION = "edit_message_text"
 
     def edit_message_text(self, bot: TelegramBot, trigger=None, **params):
@@ -977,7 +984,7 @@ class EditMessageCaption(SendGeneric):
             }
         }
 
-    CATEGORY = f"{_CATEGORY}/edit"
+    CATEGORY = _CAT_EDIT
     FUNCTION = "edit_message_caption"
 
     def edit_message_caption(self, bot: TelegramBot, trigger=None, **params):
@@ -1009,7 +1016,7 @@ class EditMessageImage(SendGeneric):
             }
         }
 
-    CATEGORY = f"{_CATEGORY}/edit"
+    CATEGORY = _CAT_EDIT
     FUNCTION = "edit_message_image"
 
     def edit_message_image(self, bot: TelegramBot, IMAGE, file_name, format,  as_file, trigger=None, **params):
@@ -1056,7 +1063,7 @@ class EditMessageVideo(SendGeneric):
             }
         }
 
-    CATEGORY = f"{_CATEGORY}/edit"
+    CATEGORY = _CAT_EDIT
     FUNCTION = "edit_message_video"
 
     def edit_message_video(self, bot: TelegramBot, video, send_as, trigger=None, **params):
@@ -1107,7 +1114,7 @@ class EditMessageAudio(SendGeneric):
             }
         }
 
-    CATEGORY = f"{_CATEGORY}/edit"
+    CATEGORY = _CAT_EDIT
     FUNCTION = "edit_message_audio"
 
     def edit_message_audio(self, bot: TelegramBot, audio, file_name, as_file, trigger=None, **params):
@@ -1162,7 +1169,7 @@ class SendChatAction:
     RETURN_NAMES = ("True", "trigger")
 
     FUNCTION = "send_chat_action"
-    CATEGORY = _CATEGORY
+    CATEGORY = _CAT_SEND
 
     def send_chat_action(self, bot: TelegramBot, trigger=None, **params):
         result = bot("sendChatAction", params=params)
@@ -1172,53 +1179,77 @@ class SendChatAction:
         return ("BOOL", trigger_type)
 
 
-class GetMessages:
+class WaitForMessage:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "bot": inputs.bot,
-                "filter": inputs.update_type,
+                "filter": inputs.update_type, # All, Text, Photo, Video
             }
         }
 
     RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT")
     RETURN_NAMES = ("text", "image", "video_path", "chat_id")
-    FUNCTION = "fetch"
-    CATEGORY = "Telegram Suite 🔽/receive"
+    FUNCTION = "wait_for_msg"
+    CATEGORY = _CAT_RECEIVE
 
-    def fetch(self, bot: TelegramBot, filter):
-        import torch
-        import os
-        # offset -1 para leer solo el último mensaje
-        updates = bot("getUpdates", params={"limit": 1, "offset": -1})
-        if not updates:
-            return ("", torch.zeros((1, 64, 64, 3)), "", 0)
+    def wait_for_msg(self, bot: TelegramBot, filter):
+        utils.log("⏳ Esperando nuevo mensaje de Telegram...")
 
-        msg = updates[0].get("message", {})
-        chat_id = msg.get("chat", {}).get("id", 0)
+        # 1. Descartar mensajes antiguos (Limpiar buffer)
+        latest = bot("getUpdates", params={"limit": 1, "offset": -1})
+        next_offset = (latest[0]["update_id"] + 1) if latest else None
 
-        text = msg.get("text", "")
-        image = torch.zeros((1, 64, 64, 3))
-        video_path = ""
+        # 2. Bucle de espera activa (Long Polling)
+        while True:
+            params = {"timeout": 30, "allowed_updates": ["message"]}
+            if next_offset:
+                params["offset"] = next_offset
 
-        # Lógica de descarga según el contenido
-        if "photo" in msg and filter in ["All", "Photo"]:
-            file_id = msg["photo"][-1]["file_id"] # La de mayor resolución
-            b, _ = bot.download_file(file_id)
-            image = utils.bytes_to_image(b)
+            updates = bot("getUpdates", params=params)
 
-        if "video" in msg and filter in ["All", "Video"]:
-            file_id = msg["video"]["file_id"]
-            b, name = bot.download_file(file_id)
-            # Guardamos temporalmente para que Comfy lo lea
-            temp_path = os.path.join(os.getcwd(), "temp", name)
-            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
-            with open(temp_path, "wb") as f:
-                f.write(b)
-            video_path = temp_path
+            if updates:
+                for update in updates:
+                    next_offset = update["update_id"] + 1
+                    msg = update.get("message", {})
 
-        return (text, image, video_path, chat_id)
+                    if not msg:
+                        continue
+
+                    # Verificar si coincide con el filtro
+                    has_text = "text" in msg
+                    has_photo = "photo" in msg
+                    has_video = "video" in msg
+
+                    if filter == "Text" and not has_text: continue
+                    if filter == "Photo" and not has_photo: continue
+                    if filter == "Video" and not has_video: continue
+
+                    # Procesar el mensaje recibido
+                    chat_id = msg.get("chat", {}).get("id", 0)
+                    text = msg.get("text", msg.get("caption", ""))
+                    image = torch.zeros((1, 64, 64, 3))
+                    video_path = ""
+
+                    if has_photo and filter in ["All", "Photo"]:
+                        file_id = msg["photo"][-1]["file_id"]
+                        b, _ = bot.download_file(file_id)
+                        image = utils.bytes_to_image(b)
+
+                    if has_video and filter in ["All", "Video"]:
+                        file_id = msg["video"]["file_id"]
+                        b, name = bot.download_file(file_id)
+                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                        with open(temp_path, "wb") as f:
+                            f.write(b)
+                        video_path = temp_path
+
+                    utils.log(f"✅ Mensaje capturado del chat {chat_id}")
+                    return (text, image, video_path, chat_id)
+
+            time.sleep(1) # Seguridad para no saturar la CPU
 
 class SendMessageButtons(SendGeneric):
     @classmethod
@@ -1229,13 +1260,15 @@ class SendMessageButtons(SendGeneric):
                 "chat_id": inputs.chat_id,
                 "text": inputs.text,
                 "buttons": inputs.buttons,
+            },
+            "optional": {
+                "trigger": inputs.trigger,
             }
         }
 
     FUNCTION = "send_menu"
 
-    def send_menu(self, bot: TelegramBot, text, buttons, chat_id, **kwargs):
-        # Convertimos "Nombre:data" en estructura JSON de botones
+    def send_menu(self, bot: TelegramBot, text, buttons, chat_id, trigger=None, **kwargs):
         keyboard = []
         for btn in buttons.split(","):
             if ":" in btn:
@@ -1249,9 +1282,9 @@ class SendMessageButtons(SendGeneric):
         }
 
         message = bot("sendMessage", params=params)
-        return message, message["message_id"], None
+        return message, message["message_id"], trigger
 
-class GetCallbackQuery:
+class WaitForCallbackQuery:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -1262,25 +1295,37 @@ class GetCallbackQuery:
 
     RETURN_TYPES = ("STRING", "INT", "DICT")
     RETURN_NAMES = ("button_data", "chat_id", "raw_update")
-    FUNCTION = "get_click"
-    CATEGORY = "Telegram Suite 🔽/receive"
+    FUNCTION = "wait_for_click"
+    CATEGORY = _CAT_RECEIVE
 
-    def get_click(self, bot: TelegramBot):
-        # Buscamos actualizaciones de tipo 'callback_query'
-        updates = bot("getUpdates", params={"limit": 1, "offset": -1, "allowed_updates": ["callback_query"]})
+    def wait_for_click(self, bot: TelegramBot):
+        utils.log("⏳ Esperando clic en un botón del menú...")
 
-        if updates and "callback_query" in updates[0]:
-            query = updates[0]["callback_query"]
-            data = query.get("data", "") # El 'comando' que pusimos en el botón
-            chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
+        latest = bot("getUpdates", params={"limit": 1, "offset": -1})
+        next_offset = (latest[0]["update_id"] + 1) if latest else None
 
-            # 💡 Opcional: Responder a Telegram que hemos recibido el clic (quita el reloj de carga en el botón)
-            bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
+        while True:
+            params = {"timeout": 30, "allowed_updates": ["callback_query"]}
+            if next_offset:
+                params["offset"] = next_offset
 
-            utils.log(f"🔘 Botón pulsado: {data} por {chat_id}")
-            return (data, chat_id, query)
+            updates = bot("getUpdates", params=params)
 
-        return ("", 0, {})
+            if updates:
+                for update in updates:
+                    next_offset = update["update_id"] + 1
+                    if "callback_query" in update:
+                        query = update["callback_query"]
+                        data = query.get("data", "")
+                        chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
+
+                        # Responder a Telegram para quitar el icono de "reloj" del botón
+                        bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
+
+                        utils.log(f"🔘 Clic detectado: {data}")
+                        return (data, chat_id, query)
+
+            time.sleep(1)
 
 ```
 
@@ -1304,7 +1349,7 @@ UINT64_MAX = 9223372036854775807
 
 USER_DIR = Path(os.getcwd()) / "user" / "default"
 
-_CATEGORY = "Telegram Suite 🔽/experimental"
+_CATEGORY = "Telegram Suite 🔽/4. ⚙️ Utils"
 
 class Chat(TypedDict):
     chat_id: int

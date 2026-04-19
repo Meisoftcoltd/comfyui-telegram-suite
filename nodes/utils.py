@@ -15,7 +15,7 @@ UINT64_MAX = 9223372036854775807
 
 USER_DIR = Path(os.getcwd()) / "user" / "default"
 
-_CATEGORY = "Telegram Suite 🔽/experimental"
+_CATEGORY = "Telegram Suite 🔽/4. ⚙️ Utils"
 
 class Chat(TypedDict):
     chat_id: int

@@ -2,71 +2,71 @@
 
 ![version](https://img.shields.io/badge/version-1.0.4-00aaff?style=for-the-badge)
 
-**Implement Telegram into your ComfyUI workflows.**
+**Implementa Telegram en tus flujos de trabajo de ComfyUI.**
 
-[Changelog](CHANGELOG.md)
+[Registro de cambios](CHANGELOG.md)
 
-## Nodes
+## Nodos
 
-The main nodes:  
+Los nodos principales:
 <img src="https://github.com/SwissCore92/comfyui-telegram-suite/blob/master/screenshots/main_nodes.png" alt="screenshots/main_nodes.png">
 
 <details><summary>Telegram Bot
 </summary>
-This node loads your Telegram bot and (optionaly) sets a default chat. 
+Este nodo carga tu bot de Telegram y (opcionalmente) establece un chat por defecto.
 
-You can configure it via: `ComfyUI/user/default/telegram-suite/config.json`
+Puedes configurarlo a través de: `ComfyUI/user/default/telegram-suite/config.json`
 </details>
 
-<details><summary>Send Message
+<details><summary>Send Message (Enviar Mensaje)
 </summary>
-This node just sends a simple text message.
+Este nodo simplemente envía un mensaje de texto.
 </details>
 
-<details><summary>Send Image(s)
+<details><summary>Send Image(s) (Enviar Imagen(es))
 </summary>
-This node sends one or more (up to 10) images.  
+Este nodo envía una o más imágenes (hasta 10).
 
-* If the `IMAGE` input contains multiple images and `group` is set to `True`, they’ll be sent as a media group.
-* If `group` is False, the images will be sent individually.
-* If `send_as_file` is `True`, the images will be sent as files instead of inline media.
+* Si la entrada `IMAGE` contiene múltiples imágenes y `group` está establecido en `True`, se enviarán como un grupo multimedia.
+* Si `group` es False, las imágenes se enviarán individualmente.
+* Si `send_as_file` es `True`, las imágenes se enviarán como archivos en lugar de como medios en línea.
 
-> Note:  
-> Only the `message(_id)` of the last sent image will be returned to the output.
+> Nota:
+> Solo el `message(_id)` de la última imagen enviada se devolverá en la salida.
 </details>
 
-<details><summary>Send Video
+<details><summary>Send Video (Enviar Video)
 </summary>
-This node sends a video file.
+Este nodo envía un archivo de video.
 
-* The video input must be of type `VHS_FILENAMES` (e.g., from the `Filenames` output of the ***Video Combine*** node in the [Video Helper Suite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)).
+* La entrada de video debe ser del tipo `VHS_FILENAMES` (por ejemplo, de la salida `Filenames` del nodo ***Video Combine*** en la suite [Video Helper Suite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)).
 
-The video can be sent as a regular video, an animation, or a file.
+El video se puede enviar como un video normal, una animación o un archivo.
 </details>
 
-<details><summary>Send Audio
+<details><summary>Send Audio (Enviar Audio)
 </summary>
-This node sends an audio file.
+Este nodo envía un archivo de audio.
 
-* Can be sent as an audio message, voice message, or file.
+* Se puede enviar como un mensaje de audio, un mensaje de voz o un archivo.
 </details>
 
-<details><summary>Send Chat Action
+<details><summary>Send Chat Action (Enviar Acción de Chat)
 </summary>
-This node sends chat actions like “typing...”, “uploading X...”, or “recording X...”.  
+Este nodo envía acciones de chat como “escribiendo...”, “subiendo X...”, o “grabando X...”.
 </details>
 
-Additional nodes include message editing, experimental features, and various type converters (see [Triggers](#triggers)).
+Nodos adicionales incluyen edición de mensajes, espera activa (Long Polling) para flujos interactivos, características experimentales y varios convertidores de tipos (ver [Triggers](#triggers)).
 
-## Installation
+## Instalación
 
-> **Note:** Requires `ffmpeg`!
+> **Nota:** ¡Requiere `ffmpeg`!
 
-### Step 1:
+### Paso 1:
 
-Install via `ComfyUI Manager` (and skip to [Step 2](#step-2)) or execute the following commands:
+Instala a través del `ComfyUI Manager` (y salta al [Paso 2](#paso-2)) o ejecuta los siguientes comandos:
 
->⚠️ Ensure your ComfyUI virtual environment is activated and you're in the `ComfyUI/custom_nodes` directory.
+>⚠️ Asegúrate de que tu entorno virtual de ComfyUI esté activado y que te encuentres en el directorio `ComfyUI/custom_nodes`.
 
 ```sh
 git clone https://github.com/SwissCore92/comfyui-telegram-suite.git
@@ -74,65 +74,66 @@ cd comfyui-telegram-suite
 pip install -r requirements.txt
 ```
 
-### Step 2: 
-Restart ComfyUI.
+### Paso 2:
+Reinicia ComfyUI.
 
-### Step 3: 
-Add your bot(s) and chat(s) to the config file. 
+### Paso 3:
+Añade tu(s) bot(s) y chat(s) al archivo de configuración.
 
-* Open: `ComfyUI/user/default/telegram-suite/config.json`.  
-* Add your *bot token(s)* under `"bots"`.  
-* Add your *chat ID(s)* under `"chats"`.  
-* **(Optional)** Add your own *telegram bot api url* under `"api_url"`.
+* Abre: `ComfyUI/user/default/telegram-suite/config.json`.
+* Añade tu(s) *token(s) del bot* bajo `"bots"`.
+* Añade tu(s) *ID(s) de chat* bajo `"chats"`.
+* **(Opcional)** Añade la *URL de la API de tu propio bot de telegram* bajo `"api_url"`.
 
-Example:
+Ejemplo:
 ```json
 {
     "bots": {
-        "MyCoolBot": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-        "MyOtherCoolBot": "654321:CBA-DEF1234ghIkl-zyx57W2v1u123ew11"
+        "MiSuperBot": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+        "MiOtroSuperBot": "654321:CBA-DEF1234ghIkl-zyx57W2v1u123ew11"
     },
     "chats": {
-        "MyPrivateChat": 567891234,
-        "MyGroupChat": -1012345678
+        "MiChatPrivado": 567891234,
+        "MiChatGrupal": -1012345678
     },
     "api_url": "https://localhost:8081"
 }
 ```
-> Use any string as the key for `"bots"` and "`chats"` — I like to use the Telegram @`username` for clarity.
+> Usa cualquier cadena como clave para `"bots"` y `"chats"` — Me gusta usar el @`usuario` de Telegram para mayor claridad.
 
-### Step 4:
-Restart ComfyUI again — and you're good to go!
+### Paso 4:
+Reinicia ComfyUI nuevamente — ¡y ya estás listo para empezar!
 
-## Triggers
+## Triggers (Disparadores)
 
-The optional `trigger` inputs/outputs are used to enforce execution order in your workflow.
+Las entradas/salidas opcionales de `trigger` se usan para forzar el orden de ejecución en tu flujo de trabajo.
 
-ComfyUI runs by evaluating output nodes and working backward to resolve dependencies. I like to think of it as the inputs "pulling" the values they need from connected outputs.
+ComfyUI se ejecuta evaluando los nodos de salida y trabajando hacia atrás para resolver las dependencias. Me gusta pensar que las entradas "tiran" de los valores que necesitan desde las salidas conectadas.
 
-The trigger passthrough ensures a node executes at a specific point during the workflow. Here's an example using [F5-TTS](https://github.com/niknah/ComfyUI-F5-TTS):
+El paso de variables a través de triggers (passthrough) asegura que un nodo se ejecute en un punto específico durante el flujo de trabajo. Aquí hay un ejemplo usando [F5-TTS](https://github.com/niknah/ComfyUI-F5-TTS):
 
 <img src="https://github.com/SwissCore92/comfyui-telegram-suite/blob/master/screenshots/trigger_example_tts.png" alt="screenshots/trigger_example_tts.png">
 
-This flow sends the `recording_voice` chat action before generating the audio with the [F5-TTS](https://github.com/niknah/ComfyUI-F5-TTS) node. Once audio is generated, it's sent to the chat.
+Este flujo envía la acción de chat `recording_voice` antes de generar el audio con el nodo [F5-TTS](https://github.com/niknah/ComfyUI-F5-TTS). Una vez generado el audio, se envía al chat.
 
-> The seed is required by the `F5-TTS Audio` node, so the `Send Chat Action` node ***must*** execute first.
+> El seed es requerido por el nodo `F5-TTS Audio`, así que el nodo `Send Chat Action` ***debe*** ejecutarse primero.
 
-You can use almost any type as a trigger. However, since ComfyUI has strict type checking, you'll need to:
+Puedes usar casi cualquier tipo como un trigger. Sin embargo, dado que ComfyUI tiene una verificación de tipos estricta, necesitarás:
 
-* ~~Convert the signal to ANY before feeding it into the trigger input.~~  
-This step is no longer required. You can feed the trigger signal directly into the node now.
-* Convert it back to the original type after the trigger output.
+* ~~Convertir la señal a ANY antes de introducirla en la entrada del trigger.~~
+Este paso ya no es necesario. Puedes alimentar la señal del trigger directamente en el nodo ahora.
+* Convertirlo de vuelta al tipo original después de la salida del trigger.
 
-*Yes, it's a bit clunky — but it’s the only reliable way I’ve found to control execution order. That’s also why the `converter` category has so many nodes.*
+*Sí, es un poco tosco — pero es la única manera confiable que he encontrado de controlar el orden de ejecución. Por eso también la categoría `converter` tiene tantos nodos.*
 
-If you have Ideas how to solve the problem in a more elegant way, feel free to open a PR.
+Si tienes ideas de cómo resolver este problema de una manera más elegante, no dudes en abrir un PR.
 
-## To Do
-- [ ] Improve documentation 
-- [x] Add `Edit Message Video` node
-- [x] Add `Edit Message Audio` node
-- [x] Add Forum/Topics support
-- [x] Add tooltips and descriptions.
+## Por Hacer
+- [ ] Mejorar la documentación
+- [x] Añadir nodo `Edit Message Video`
+- [x] Añadir nodo `Edit Message Audio`
+- [x] Añadir soporte para Foros/Temas
+- [x] Añadir descripciones y tooltips
+- [x] Añadir espera activa (Long Polling) para nodos de recepción interactivos
 
-- [ ] Wait for feedback to refine this list
+- [ ] Esperar comentarios para refinar esta lista
