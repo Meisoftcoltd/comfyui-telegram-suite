@@ -811,6 +811,84 @@ class SendMessageButtons(SendGeneric):
         message = bot("sendMessage", params=params)
         return message, message["message_id"], trigger
 
+class WaitForTelegramImage:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "bot": inputs.bot,
+                "chat_id": inputs.chat_id,
+                "mode": (["long_polling", "n8n_webhook"], {"default": "long_polling", "tooltip": "Usa long_polling si este bot es exclusivo de ComfyUI. Usa n8n_webhook si compartes el bot."}),
+                "timeout": ("INT", {"default": 300, "min": 10, "max": 3600, "step": 1, "tooltip": "Tiempo máximo de espera en segundos"}),
+            },
+            "optional": {
+                "trigger": inputs.trigger,
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "MASK", "*")
+    RETURN_NAMES = ("IMAGE", "MASK", "trigger")
+    FUNCTION = "wait_for_image"
+    CATEGORY = _CAT_RECEIVE
+
+    def wait_for_image(self, bot: TelegramBot, chat_id, mode, timeout, trigger=None):
+        start_time = time.time()
+
+        if mode == "n8n_webhook":
+            utils.log(f"⏳ [Modo n8n] Esperando imagen en el endpoint /n8n_telegram_webhook... (Timeout: {timeout}s)")
+            N8N_WEBHOOK_MAILBOX.clear()
+
+            while True:
+                if len(N8N_WEBHOOK_MAILBOX) > 0:
+                    for i, data in enumerate(N8N_WEBHOOK_MAILBOX):
+                        photo_file_id = data.get("photo_file_id", "")
+                        sender_chat_id = data.get("chat_id", 0)
+
+                        if sender_chat_id == chat_id and photo_file_id:
+                            N8N_WEBHOOK_MAILBOX.pop(i)
+                            utils.log(f"✅ [n8n] Imagen recibida: {photo_file_id}")
+                            b, _ = bot.download_file(photo_file_id)
+                            image = utils.bytes_to_image(b)
+                            mask = torch.ones((1, image.shape[1], image.shape[2]))
+                            return (image, mask, trigger)
+
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
+                    raise Exception("Timeout: No se recibió ninguna imagen de Telegram")
+                time.sleep(1)
+
+        else: # Modo long_polling
+            utils.log(f"⏳ [Modo Polling] Esperando imagen directa de Telegram... (Timeout: {timeout}s)")
+            latest = bot("getUpdates", params={"limit": 1, "offset": -1})
+            next_offset = (latest[0]["update_id"] + 1) if latest else None
+
+            while True:
+                params = {"timeout": 30, "allowed_updates": ["message"]}
+                if next_offset: params["offset"] = next_offset
+
+                updates = bot("getUpdates", params=params)
+
+                if updates:
+                    for update in updates:
+                        next_offset = update["update_id"] + 1
+                        msg = update.get("message", {})
+
+                        if not msg: continue
+
+                        sender_chat_id = msg.get("chat", {}).get("id", 0)
+                        if sender_chat_id == chat_id and "photo" in msg:
+                            file_id = msg["photo"][-1]["file_id"]
+                            utils.log(f"📸 [Polling] Imagen detectada: {file_id}")
+                            b, _ = bot.download_file(file_id)
+                            image = utils.bytes_to_image(b)
+                            mask = torch.ones((1, image.shape[1], image.shape[2]))
+                            return (image, mask, trigger)
+
+                if time.time() - start_time > timeout:
+                    utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
+                    raise Exception("Timeout: No se recibió ninguna imagen de Telegram")
+                time.sleep(1)
+
 class WaitForCallbackQuery:
     @classmethod
     def INPUT_TYPES(cls):
