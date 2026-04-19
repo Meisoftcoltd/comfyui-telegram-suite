@@ -3,15 +3,15 @@ from pathlib import Path
 # This script is for automatically generate the converters.py file.
 # Add more types here if needed.
 TYPES = [
-    "INT", 
-    "FLOAT", 
-    "BOOLEAN", 
-    "STRING", 
+    "INT",
+    "FLOAT",
+    "BOOLEAN",
+    "STRING",
     "DICT",
-    "MODEL", 
-    "CLIP", 
-    "VAE", 
-    "IMAGE", 
+    "MODEL",
+    "CLIP",
+    "VAE",
+    "IMAGE",
     "AUDIO",
     "LATENT",
 ]
@@ -26,13 +26,13 @@ class AnyToX:
                 "any": ("*",),
             },
         }
-    
+
     FUNCTION = "convert"
     CATEGORY = "Telegram Suite 🔽/converters"
 
     def convert(self, any):
         return (any,)
-""" 
+"""
 
     type_mapping = []
     name_mapping = []
@@ -43,11 +43,58 @@ class AnyToX:
         name_mapping.append(f"\"AnyTo{t}\": \"Any To {t}\",")
         name_mapping.append(f"\"{t}ToAny\": \"{t} To Any\",")
 
-        script += f"""
+        if t == "INT":
+            script += f"""
 class AnyTo{t}(AnyToX):
     RETURN_TYPES = ("{t}",)
     RETURN_NAMES = ("{t}",)
 
+    def convert(self, any):
+        # Limpia espacios y comillas (" o ')
+        clean_val = str(any).strip(' "\\'')
+        # Pasamos por float primero por si el string es "1080.0"
+        return (int(float(clean_val)),)
+"""
+        elif t == "FLOAT":
+            script += f"""
+class AnyTo{t}(AnyToX):
+    RETURN_TYPES = ("{t}",)
+    RETURN_NAMES = ("{t}",)
+
+    def convert(self, any):
+        clean_val = str(any).strip(' "\\'')
+        return (float(clean_val),)
+"""
+        elif t == "BOOLEAN":
+            script += f"""
+class AnyTo{t}(AnyToX):
+    RETURN_TYPES = ("{t}",)
+    RETURN_NAMES = ("{t}",)
+
+    def convert(self, any):
+        clean_val = str(any).strip(' "\\'').lower()
+        return (clean_val in ['true', '1', 't', 'y', 'yes', 'on'],)
+"""
+        elif t == "STRING":
+            script += f"""
+class AnyTo{t}(AnyToX):
+    RETURN_TYPES = ("{t}",)
+    RETURN_NAMES = ("{t}",)
+
+    def convert(self, any):
+        # Si ya es string, le quitamos las comillas residuales de JSON
+        if isinstance(any, str):
+            return (any.strip(' "\\''),)
+        return (str(any),)
+"""
+        else:
+            script += f"""
+class AnyTo{t}(AnyToX):
+    RETURN_TYPES = ("{t}",)
+    RETURN_NAMES = ("{t}",)
+"""
+
+        script += f"""
 class {t}ToAny:
     @classmethod
     def INPUT_TYPES(cls):
