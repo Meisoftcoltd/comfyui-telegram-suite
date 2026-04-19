@@ -24,6 +24,7 @@ NODE_CLASS_MAPPINGS = {
         "WaitForMessage": telegram.WaitForMessage,
         "SendMessageButtons": telegram.SendMessageButtons,
         "WaitForCallbackQuery": telegram.WaitForCallbackQuery,
+        "WaitForTelegramImage": telegram.WaitForTelegramImage,
 
         **converters.type_mapping
     }.items()
@@ -49,6 +50,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
         "WaitForMessage": "Wait For Message",
         "SendMessageButtons": "Send Menu (Buttons)",
         "WaitForCallbackQuery": "Wait For Button Click",
+        "WaitForTelegramImage": "Wait For Telegram Image",
 
         **converters.name_mapping
     }.items()
