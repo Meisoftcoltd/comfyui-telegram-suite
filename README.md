@@ -49,6 +49,7 @@ El video se puede enviar como un video normal, una animación o un archivo.
 Este nodo envía un archivo de audio.
 
 * Se puede enviar como un mensaje de audio, un mensaje de voz o un archivo.
+
 </details>
 
 <details><summary>Send Chat Action (Enviar Acción de Chat)
@@ -62,7 +63,7 @@ Nodos adicionales incluyen edición de mensajes, espera activa (Long Polling) pa
 
 > **Nota:** ¡Requiere `ffmpeg`!
 
-### Paso 1:
+### Paso 1
 
 Instala a través del `ComfyUI Manager` (y salta al [Paso 2](#paso-2)) o ejecuta los siguientes comandos:
 
@@ -74,10 +75,12 @@ cd comfyui-telegram-suite
 pip install -r requirements.txt
 ```
 
-### Paso 2:
+### Paso 2
+
 Reinicia ComfyUI.
 
-### Paso 3:
+### Paso 3
+
 Añade tu(s) bot(s) y chat(s) al archivo de configuración.
 
 * Abre: `ComfyUI/user/default/telegram-suite/config.json`.
@@ -86,6 +89,7 @@ Añade tu(s) bot(s) y chat(s) al archivo de configuración.
 * **(Opcional)** Añade la *URL de la API de tu propio bot de telegram* bajo `"api_url"`.
 
 Ejemplo:
+
 ```json
 {
     "bots": {
@@ -99,9 +103,11 @@ Ejemplo:
     "api_url": "https://localhost:8081"
 }
 ```
+
 > Usa cualquier cadena como clave para `"bots"` y `"chats"` — Me gusta usar el @`usuario` de Telegram para mayor claridad.
 
-### Paso 4:
+### Paso 4
+
 Reinicia ComfyUI nuevamente — ¡y ya estás listo para empezar!
 
 ## Triggers (Disparadores)
@@ -128,30 +134,37 @@ Este paso ya no es necesario. Puedes alimentar la señal del trigger directament
 
 Si tienes ideas de cómo resolver este problema de una manera más elegante, no dudes en abrir un PR.
 
-## 🔀 Real Type Converters
-This suite includes specialized Converter Nodes (e.g., `Any To INT`, `Any To FLOAT`) designed to bridge the gap between Telegram's text-based outputs and ComfyUI's strict mathematical inputs.
-Unlike basic bypass nodes, these converters perform **Real Python Type Casting**. They automatically strip residual JSON quotes (`"`) or extra spaces from your Telegram buttons (e.g., converting the string `"1080"` into a pure integer `1080`), ensuring seamless connection to resolution or parameter nodes.
+## 🔀 Conversores de Tipo Reales
+
+Esta suite incluye Nodos Conversores especializados (por ejemplo, `Any To INT`, `Any To FLOAT`) diseñados para salvar la brecha entre las salidas basadas en texto de Telegram y las estrictas entradas matemáticas de ComfyUI.
+A diferencia de los nodos de paso (bypass) básicos, estos conversores realizan **Casteo de Tipo Real en Python**. Eliminan automáticamente comillas residuales de JSON (`"`) o espacios adicionales de tus botones de Telegram (por ejemplo, convirtiendo la cadena `"1080"` en un número entero puro `1080`), asegurando una conexión perfecta con nodos de resolución o parámetros.
 
 ---
 
-## 🔗 Advanced Routing: Using the Suite with n8n (Webhook Mode)
-If you use the same Telegram Bot token in **n8n** (or Make/Zapier), Telegram will lock the standard `getUpdates` (Long Polling) method. To solve this, our Receive nodes (`Wait For...`) include an **`n8n_webhook`** mode.
+## 🔗 Enrutamiento Avanzado: Uso de la Suite con n8n (Modo Webhook)
 
-This mode turns your ComfyUI into a silent server that waits for n8n to inject the Telegram data.
+Si utilizas el mismo token del Bot de Telegram en **n8n** (o Make/Zapier), Telegram bloqueará el método estándar `getUpdates` (Long Polling). Para resolver esto, nuestros nodos de Recepción (`Wait For...`) incluyen un modo **`n8n_webhook`**.
 
-### 1. ComfyUI Setup
-1. Set your `Wait For...` node mode to **`n8n_webhook`**.
-2. Connect the `trigger` input to the previous node's `trigger` output to ensure the flow waits correctly.
+Este modo convierte tu ComfyUI en un servidor silencioso que espera a que n8n inyecte los datos de Telegram.
 
-### 2. n8n HTTP Request Setup (Sending the Payload)
-In your n8n workflow, create an **HTTP Request** node triggered by your Telegram Node.
-* **Method:** `POST`
-* **URL:** `http://<YOUR_COMFYUI_IP>:8188/n8n_telegram_webhook` *(Adjust port if necessary)*
+### 1. Configuración de ComfyUI
+
+1. Establece el modo de tu nodo `Wait For...` a **`n8n_webhook`**.
+2. Conecta la entrada `trigger` a la salida `trigger` del nodo anterior para asegurar que el flujo espere correctamente.
+
+### 2. Configuración de Petición HTTP en n8n (Envío del Payload)
+
+En tu flujo de trabajo de n8n, crea un nodo de **Petición HTTP** (HTTP Request) que se active mediante tu Nodo de Telegram.
+
+* **Método:** `POST`
+* **URL:** `http://<IP_DE_TU_COMFYUI>:8188/n8n_telegram_webhook` *(Ajusta el puerto si es necesario)*
 * **Body Content Type:** `JSON`
 * **Specify Body:** `Using JSON`
 
-#### A. Payload for Button Clicks (Wait For Callback Query)
-Ensure your JSON field is set to **Expression** in n8n and paste:
+#### A. Payload para Clics de Botones (Wait For Callback Query)
+
+Asegúrate de que tu campo JSON esté configurado como **Expression** en n8n y pega:
+
 ```javascript
 {{
   {
@@ -161,8 +174,10 @@ Ensure your JSON field is set to **Expression** in n8n and paste:
 }}
 ```
 
-#### B. Payload for Text & Media (Wait For Message)
-Ensure your JSON field is set to **Expression** in n8n and paste:
+#### B. Payload para Texto y Multimedia (Wait For Message)
+
+Asegúrate de que tu campo JSON esté configurado como **Expression** en n8n y pega:
+
 ```javascript
 {{
   {
@@ -173,14 +188,16 @@ Ensure your JSON field is set to **Expression** in n8n and paste:
   }
 }}
 ```
-*Note: ComfyUI will automatically use these `file_id` strings to download the high-res media directly from Telegram's servers. You do NOT need to download the files within n8n!*
+
+*Nota: ComfyUI usará automáticamente estas cadenas `file_id` para descargar los medios en alta resolución directamente de los servidores de Telegram. ¡NO necesitas descargar los archivos dentro de n8n!*
 
 ## Por Hacer
-- [ ] Mejorar la documentación
-- [x] Añadir nodo `Edit Message Video`
-- [x] Añadir nodo `Edit Message Audio`
-- [x] Añadir soporte para Foros/Temas
-- [x] Añadir descripciones y tooltips
-- [x] Añadir espera activa (Long Polling) para nodos de recepción interactivos
 
-- [ ] Esperar comentarios para refinar esta lista
+* [ ] Mejorar la documentación
+* [x] Añadir nodo `Edit Message Video`
+* [x] Añadir nodo `Edit Message Audio`
+* [x] Añadir soporte para Foros/Temas
+* [x] Añadir descripciones y tooltips
+* [x] Añadir espera activa (Long Polling) para nodos de recepción interactivos
+
+* [ ] Esperar comentarios para refinar esta lista
