@@ -7,7 +7,7 @@ class AnyToX:
                 "any": ("*",),
             },
         }
-    
+
     FUNCTION = "convert"
     CATEGORY = "Telegram Suite 🔽/converters"
 
@@ -17,6 +17,12 @@ class AnyToX:
 class AnyToINT(AnyToX):
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("INT",)
+
+    def convert(self, any):
+        # Limpia espacios y comillas (" o ')
+        clean_val = str(any).strip(' "\'')
+        # Pasamos por float primero por si el string es "1080.0"
+        return (int(float(clean_val)),)
 
 class INTToAny:
     @classmethod
@@ -39,6 +45,10 @@ class AnyToFLOAT(AnyToX):
     RETURN_TYPES = ("FLOAT",)
     RETURN_NAMES = ("FLOAT",)
 
+    def convert(self, any):
+        clean_val = str(any).strip(' "\'')
+        return (float(clean_val),)
+
 class FLOATToAny:
     @classmethod
     def INPUT_TYPES(cls):
@@ -60,6 +70,10 @@ class AnyToBOOLEAN(AnyToX):
     RETURN_TYPES = ("BOOLEAN",)
     RETURN_NAMES = ("BOOLEAN",)
 
+    def convert(self, any):
+        clean_val = str(any).strip(' "\'').lower()
+        return (clean_val in ['true', '1', 't', 'y', 'yes', 'on'],)
+
 class BOOLEANToAny:
     @classmethod
     def INPUT_TYPES(cls):
@@ -80,6 +94,12 @@ class BOOLEANToAny:
 class AnyToSTRING(AnyToX):
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("STRING",)
+
+    def convert(self, any):
+        # Si ya es string, le quitamos las comillas residuales de JSON
+        if isinstance(any, str):
+            return (any.strip(' "\''),)
+        return (str(any),)
 
 class STRINGToAny:
     @classmethod

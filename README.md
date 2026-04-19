@@ -128,43 +128,50 @@ Este paso ya no es necesario. Puedes alimentar la señal del trigger directament
 
 Si tienes ideas de cómo resolver este problema de una manera más elegante, no dudes en abrir un PR.
 
-## 🔗 Advanced Routing: Using the Suite with n8n (Webhook Mode)
+## 🔀 Real Type Converters
+This suite includes specialized Converter Nodes (e.g., `Any To INT`, `Any To FLOAT`) designed to bridge the gap between Telegram's text-based outputs and ComfyUI's strict mathematical inputs.
+Unlike basic bypass nodes, these converters perform **Real Python Type Casting**. They automatically strip residual JSON quotes (`"`) or extra spaces from your Telegram buttons (e.g., converting the string `"1080"` into a pure integer `1080`), ensuring seamless connection to resolution or parameter nodes.
 
+---
+
+## 🔗 Advanced Routing: Using the Suite with n8n (Webhook Mode)
 If you use the same Telegram Bot token in **n8n** (or Make/Zapier), Telegram will lock the standard `getUpdates` (Long Polling) method. To solve this, our Receive nodes (`Wait For...`) include an **`n8n_webhook`** mode.
 
 This mode turns your ComfyUI into a silent server that waits for n8n to inject the Telegram data.
 
-### How to configure n8n to send Button Clicks (Callback Queries) to ComfyUI:
+### 1. ComfyUI Setup
+1. Set your `Wait For...` node mode to **`n8n_webhook`**.
+2. Connect the `trigger` input to the previous node's `trigger` output to ensure the flow waits correctly.
 
-1. In ComfyUI, set your `Wait For Button Click` node mode to **`n8n_webhook`**.
-2. Connect the `trigger` input to the `trigger` output of your `Send Menu` node (so ComfyUI waits until the menu is sent).
-3. In your **n8n workflow**, create an **HTTP Request** node triggered by your Telegram Node (listening for Callback Queries).
-4. Configure the n8n HTTP Request as follows:
-   * **Method:** `POST`
-   * **URL:** `http://<YOUR_COMFYUI_IP>:<YOUR_COMFYUI_PORT>/n8n_telegram_webhook`
-     *(Example: `http://192.168.1.100:8189/n8n_telegram_webhook`)*
-   * **Body Type:** `JSON`
-   * **Send Body:** Map the variables from your Telegram trigger exactly like this:
-     ```json
-     {
-       "button_data": "={{ $json.callback_query.data }}",
-       "chat_id": "={{ $json.callback_query.message.chat.id }}"
-     }
-     ```
-5. When the user clicks a button, n8n will instantly POST this JSON to ComfyUI, waking up the flow and passing the data to the rest of your nodes!
+### 2. n8n HTTP Request Setup (Sending the Payload)
+In your n8n workflow, create an **HTTP Request** node triggered by your Telegram Node.
+* **Method:** `POST`
+* **URL:** `http://<YOUR_COMFYUI_IP>:8188/n8n_telegram_webhook` *(Adjust port if necessary)*
+* **Body Content Type:** `JSON`
+* **Specify Body:** `Using JSON`
 
-### Payload for "Wait For Message" (Text, Images, Videos)
-If you are using the `Wait For Message` node in `n8n_webhook` mode, set up an HTTP Request in n8n triggered by standard Telegram messages.
+#### A. Payload for Button Clicks (Wait For Callback Query)
+Ensure your JSON field is set to **Expression** in n8n and paste:
+```javascript
+{{
+  {
+    "button_data": $json.callback_query.data,
+    "chat_id": $json.callback_query.message.chat.id
+  }
+}}
+```
 
-Use this JSON mapping in your n8n Send Body to pass the text and media `file_id` seamlessly to ComfyUI:
-
-```json
-{
-  "text": "={{ $json.message.text || $json.message.caption || '' }}",
-  "chat_id": "={{ $json.message.chat.id }}",
-  "photo_file_id": "={{ $json.message.photo ? $json.message.photo[$json.message.photo.length - 1].file_id : '' }}",
-  "video_file_id": "={{ $json.message.video ? $json.message.video.file_id : '' }}"
-}
+#### B. Payload for Text & Media (Wait For Message)
+Ensure your JSON field is set to **Expression** in n8n and paste:
+```javascript
+{{
+  {
+    "text": $json.message.text || $json.message.caption || "",
+    "chat_id": $json.message.chat.id,
+    "photo_file_id": $json.message.photo ? $json.message.photo.slice(-1)[0].file_id : "",
+    "video_file_id": $json.message.video ? $json.message.video.file_id : ""
+  }
+}}
 ```
 *Note: ComfyUI will automatically use these `file_id` strings to download the high-res media directly from Telegram's servers. You do NOT need to download the files within n8n!*
 
