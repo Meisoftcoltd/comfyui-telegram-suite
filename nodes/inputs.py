@@ -145,7 +145,7 @@ buttons = ("STRING", {
 })
 
 # Para controlar qué buscamos al recibir
-update_type = (["All", "Text", "Photo", "Video"], {
+update_type = (["All", "Text", "Photo", "Video", "Audio", "Document"], {
     "default": "All",
     "tooltip": "Filtrar el tipo de mensaje que queremos capturar."
 })
