@@ -667,8 +667,8 @@ class WaitForMessage:
             }
         }
 
-    RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT", "*")
-    RETURN_NAMES = ("text", "image", "video_path", "chat_id", "trigger")
+    RETURN_TYPES = ("STRING", "IMAGE", "STRING", "INT", "*", "AUDIO", "STRING")
+    RETURN_NAMES = ("text", "image", "video_path", "chat_id", "trigger", "audio", "document_path")
     FUNCTION = "wait_for_msg"
     CATEGORY = _CAT_RECEIVE
 
@@ -687,17 +687,25 @@ class WaitForMessage:
                     chat_id = data.get("chat_id", 0)
                     photo_file_id = data.get("photo_file_id", "")
                     video_file_id = data.get("video_file_id", "")
+                    audio_file_id = data.get("audio_file_id", "")
+                    document_file_id = data.get("document_file_id", "")
 
                     has_text = bool(text)
                     has_photo = bool(photo_file_id)
                     has_video = bool(video_file_id)
+                    has_audio = bool(audio_file_id)
+                    has_document = bool(document_file_id)
 
                     if filter == "Text" and not has_text: continue
                     if filter == "Photo" and not has_photo: continue
                     if filter == "Video" and not has_video: continue
+                    if filter == "Audio" and not has_audio: continue
+                    if filter == "Document" and not has_document: continue
 
                     image = torch.zeros((1, 64, 64, 3))
                     video_path = ""
+                    audio_dict = {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}
+                    document_path = ""
 
                     if has_photo and filter in ["All", "Photo"]:
                         b, _ = bot.download_file(photo_file_id)
@@ -711,12 +719,33 @@ class WaitForMessage:
                             f.write(b)
                         video_path = temp_path
 
+                    if has_audio and filter in ["All", "Audio"]:
+                        b, name = bot.download_file(audio_file_id)
+                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                        with open(temp_path, "wb") as f:
+                            f.write(b)
+                        try:
+                            import torchaudio
+                            waveform, sample_rate = torchaudio.load(temp_path)
+                            audio_dict = {"waveform": waveform.unsqueeze(0), "sample_rate": sample_rate}
+                        except Exception as e:
+                            utils.log(f"❌ Error loading audio: {e}")
+
+                    if has_document and filter in ["All", "Document"]:
+                        b, name = bot.download_file(document_file_id)
+                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                        with open(temp_path, "wb") as f:
+                            f.write(b)
+                        document_path = temp_path
+
                     utils.log(f"✅ [n8n] Message processed for chat {chat_id}")
-                    return (text, image, video_path, chat_id, trigger)
+                    return (text, image, video_path, chat_id, trigger, audio_dict, document_path)
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No message received from n8n.")
-                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger)
+                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger, {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}, "")
                 time.sleep(1)
 
         else: # long_polling mode
@@ -740,15 +769,21 @@ class WaitForMessage:
                         has_text = "text" in msg or "caption" in msg
                         has_photo = "photo" in msg
                         has_video = "video" in msg
+                        has_audio = "audio" in msg or "voice" in msg
+                        has_document = "document" in msg
 
                         if filter == "Text" and not has_text: continue
                         if filter == "Photo" and not has_photo: continue
                         if filter == "Video" and not has_video: continue
+                        if filter == "Audio" and not has_audio: continue
+                        if filter == "Document" and not has_document: continue
 
                         chat_id = msg.get("chat", {}).get("id", 0)
                         text = msg.get("text", msg.get("caption", ""))
                         image = torch.zeros((1, 64, 64, 3))
                         video_path = ""
+                        audio_dict = {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}
+                        document_path = ""
 
                         if has_photo and filter in ["All", "Photo"]:
                             file_id = msg["photo"][-1]["file_id"]
@@ -764,12 +799,35 @@ class WaitForMessage:
                                 f.write(b)
                             video_path = temp_path
 
+                        if has_audio and filter in ["All", "Audio"]:
+                            file_id = msg.get("audio", msg.get("voice"))["file_id"]
+                            b, name = bot.download_file(file_id)
+                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                            with open(temp_path, "wb") as f:
+                                f.write(b)
+                            try:
+                                import torchaudio
+                                waveform, sample_rate = torchaudio.load(temp_path)
+                                audio_dict = {"waveform": waveform.unsqueeze(0), "sample_rate": sample_rate}
+                            except Exception as e:
+                                utils.log(f"❌ Error loading audio: {e}")
+
+                        if has_document and filter in ["All", "Document"]:
+                            file_id = msg["document"]["file_id"]
+                            b, name = bot.download_file(file_id)
+                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                            with open(temp_path, "wb") as f:
+                                f.write(b)
+                            document_path = temp_path
+
                         utils.log(f"✅ [Polling] Message captured from chat {chat_id}")
-                        return (text, image, video_path, chat_id, trigger)
+                        return (text, image, video_path, chat_id, trigger, audio_dict, document_path)
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No direct messages in Telegram.")
-                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger)
+                    return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger, {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}, "")
                 time.sleep(1)
 
 class SendMessageButtons(SendGeneric):
