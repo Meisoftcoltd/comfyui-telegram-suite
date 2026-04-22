@@ -24,6 +24,9 @@ debug = True
 # Buzón global para almacenar las llamadas de n8n
 N8N_WEBHOOK_MAILBOX = []
 
+# Caché nativo para compatibilidad con Sequential Batcher
+TELEGRAM_INTERNAL_CACHE = {}
+
 # Endpoint API de ComfyUI. Se adapta automáticamente al puerto del usuario (8188, 8189, etc.)
 @PromptServer.instance.routes.post("/n8n_telegram_webhook")
 async def n8n_webhook(request):
@@ -202,12 +205,17 @@ class SendMessage(SendGeneric):
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
     FUNCTION = "send_message"
 
-    def send_message(self, bot: TelegramBot, trigger=None, **params):
+    def send_message(self, bot: TelegramBot, trigger=None, active=True, **params):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
         params = utils.cleanup_params(params)
 
         message = bot("sendMessage", params=params)
@@ -235,13 +243,18 @@ class SendImage(SendGeneric):
                 "message_thread_id": inputs.message_thread_id,
             },
             "optional": {
-                "trigger": inputs.trigger
+                "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
     FUNCTION = "send_photo"
 
-    def send_photo(self, bot: TelegramBot, IMAGE, group, send_as_file, file_name, format, trigger=None, **params):
+    def send_photo(self, bot: TelegramBot, IMAGE, group, send_as_file, file_name, format, trigger=None, active=True, **params):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
         id = "document" if send_as_file else "photo"
 
         params = utils.cleanup_params(params)
@@ -333,13 +346,18 @@ class SendVideo(SendGeneric):
                 "message_thread_id": inputs.message_thread_id
             },
             "optional": {
-                "trigger": inputs.trigger
+                "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
     FUNCTION = "send_video"
 
-    def send_video(self, bot: TelegramBot, video, send_as, trigger=None, **params):
+    def send_video(self, bot: TelegramBot, video, send_as, trigger=None, active=True, **params):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
         params = utils.cleanup_params(params)
 
         file_path = [v for v in video[1] if not v.endswith(".png")][0]
@@ -381,13 +399,18 @@ class SendAudio(SendGeneric):
                 "message_thread_id": inputs.message_thread_id
             },
             "optional": {
-                "trigger": inputs.trigger
+                "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
     FUNCTION = "send_audio"
 
-    def send_audio(self, bot: TelegramBot, audio, send_as, file_name, trigger=None, **params):
+    def send_audio(self, bot: TelegramBot, audio, send_as, file_name, trigger=None, active=True, **params):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
         params = utils.cleanup_params(params)
 
         params["caption"] = params["caption"] or None
@@ -664,6 +687,10 @@ class WaitForMessage:
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID"
             }
         }
 
@@ -672,7 +699,14 @@ class WaitForMessage:
     FUNCTION = "wait_for_msg"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_msg(self, bot: TelegramBot, filter, mode, timeout, trigger=None):
+    def wait_for_msg(self, bot: TelegramBot, filter, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+        global TELEGRAM_INTERNAL_CACHE
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+
+        if idx > 0 and unique_id in TELEGRAM_INTERNAL_CACHE:
+            utils.log(f"♻️ [Telegram Cache] Bypass nativo activado (Ciclo {idx}).")
+            return TELEGRAM_INTERNAL_CACHE[unique_id]
+
         start_time = time.time()
 
         if mode == "n8n_webhook":
@@ -741,7 +775,10 @@ class WaitForMessage:
                         document_path = temp_path
 
                     utils.log(f"✅ [n8n] Message processed for chat {chat_id}")
-                    return (text, image, video_path, chat_id, trigger, audio_dict, document_path)
+                    result = (text, image, video_path, chat_id, trigger, audio_dict, document_path)
+                    if idx == 0:
+                        TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                    return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No message received from n8n.")
@@ -823,7 +860,10 @@ class WaitForMessage:
                             document_path = temp_path
 
                         utils.log(f"✅ [Polling] Message captured from chat {chat_id}")
-                        return (text, image, video_path, chat_id, trigger, audio_dict, document_path)
+                        result = (text, image, video_path, chat_id, trigger, audio_dict, document_path)
+                        if idx == 0:
+                            TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                        return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No direct messages in Telegram.")
@@ -843,12 +883,17 @@ class SendMessageButtons(SendGeneric):
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
     FUNCTION = "send_menu"
 
-    def send_menu(self, bot: TelegramBot, text, buttons, columns, chat_id, trigger=None, **kwargs):
+    def send_menu(self, bot: TelegramBot, text, buttons, columns, chat_id, trigger=None, active=True, **kwargs):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
         # 1. Extraemos todos los botones en una lista plana
         flat_buttons = []
         for btn in buttons.split(","):
@@ -881,6 +926,10 @@ class WaitForTelegramImage:
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID"
             }
         }
 
@@ -889,7 +938,14 @@ class WaitForTelegramImage:
     FUNCTION = "wait_for_image"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_image(self, bot: TelegramBot, chat_id, mode, timeout, trigger=None):
+    def wait_for_image(self, bot: TelegramBot, chat_id, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+        global TELEGRAM_INTERNAL_CACHE
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+
+        if idx > 0 and unique_id in TELEGRAM_INTERNAL_CACHE:
+            utils.log(f"♻️ [Telegram Cache] Bypass nativo activado (Ciclo {idx}).")
+            return TELEGRAM_INTERNAL_CACHE[unique_id]
+
         start_time = time.time()
 
         if mode == "n8n_webhook":
@@ -908,7 +964,10 @@ class WaitForTelegramImage:
                             b, _ = bot.download_file(photo_file_id)
                             image = utils.bytes_to_image(b)
                             mask = torch.ones((1, image.shape[1], image.shape[2]))
-                            return (image, mask, trigger)
+                            result = (image, mask, trigger)
+                            if idx == 0:
+                                TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                            return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
@@ -940,7 +999,10 @@ class WaitForTelegramImage:
                             b, _ = bot.download_file(file_id)
                             image = utils.bytes_to_image(b)
                             mask = torch.ones((1, image.shape[1], image.shape[2]))
-                            return (image, mask, trigger)
+                            result = (image, mask, trigger)
+                            if idx == 0:
+                                TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                            return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
@@ -958,6 +1020,10 @@ class WaitForCallbackQuery:
             },
             "optional": {
                 "trigger": inputs.trigger, # Entrada de activación obligatoria para frenar el flujo
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID"
             }
         }
 
@@ -966,7 +1032,14 @@ class WaitForCallbackQuery:
     FUNCTION = "wait_for_click"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_click(self, bot: TelegramBot, mode, timeout, trigger=None):
+    def wait_for_click(self, bot: TelegramBot, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+        global TELEGRAM_INTERNAL_CACHE
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+
+        if idx > 0 and unique_id in TELEGRAM_INTERNAL_CACHE:
+            utils.log(f"♻️ [Telegram Cache] Bypass nativo activado (Ciclo {idx}).")
+            return TELEGRAM_INTERNAL_CACHE[unique_id]
+
         start_time = time.time()
 
         if mode == "n8n_webhook":
@@ -979,7 +1052,10 @@ class WaitForCallbackQuery:
                     button_data = data.get("button_data", "")
                     chat_id = data.get("chat_id", 0)
                     utils.log(f"✅ [n8n] Clic recibido: {button_data}")
-                    return (button_data, chat_id, data, trigger)
+                    result = (button_data, chat_id, data, trigger)
+                    if idx == 0:
+                        TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                    return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: n8n no respondió.")
@@ -1006,7 +1082,10 @@ class WaitForCallbackQuery:
                             chat_id = query.get("message", {}).get("chat", {}).get("id", 0)
                             bot("answerCallbackQuery", params={"callback_query_id": query["id"]})
                             utils.log(f"🔘 [Polling] Clic detectado: {data}")
-                            return (data, chat_id, query, trigger)
+                            result = (data, chat_id, query, trigger)
+                            if idx == 0:
+                                TELEGRAM_INTERNAL_CACHE[unique_id] = result
+                            return result
 
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No hubo clics en Telegram.")
