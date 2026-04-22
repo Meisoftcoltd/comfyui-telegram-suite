@@ -141,6 +141,13 @@ Unlike basic bypass nodes, these converters perform **Real Python Type Casting**
 
 ---
 
+## 🔄 Native Loop-Aware Compatibility
+
+This suite is designed to be 100% compatible with **[ComfyUI-Sequential-Batcher](https://github.com/Meisoftcoltd/ComfyUI-Sequential-Batcher)** and other iterative workflows.
+
+* **Receiver Nodes (`Wait`):** They feature a smart internal cache. During a loop (cycle > 0), they will not pause the execution waiting for a new message; instead, they will "bypass" and automatically return the last received image or text. This prevents your process from getting stuck asking for confirmation on every iteration. (Just connect the current cycle output to the `current_loop_index` pin).
+* **Sender Nodes (`Send`):** They incorporate a mute switch (`active`). If connected to the loop index using a node like `CycleMuter`, you can silence the sends on secondary cycles (returning True only on cycle 0). This prevents spamming your Telegram chat while processing a large batch of images!
+
 ## 🔗 Advanced Routing: Using the Suite with n8n (Webhook Mode)
 
 If you use the same Telegram Bot token in **n8n** (or Make/Zapier), Telegram will lock the standard `getUpdates` (Long Polling) method. To solve this, our Receive nodes (`Wait For...`) include an **`n8n_webhook`** mode.

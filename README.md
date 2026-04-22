@@ -141,6 +141,13 @@ A diferencia de los nodos de paso (bypass) básicos, estos conversores realizan 
 
 ---
 
+## 🔄 Compatibilidad Nativa con Bucles (Loop-Aware)
+
+Esta suite está diseñada para ser 100% compatible con **[ComfyUI-Sequential-Batcher](https://github.com/Meisoftcoltd/ComfyUI-Sequential-Batcher)** y otros flujos de trabajo iterativos.
+
+* **Nodos Receptores (`Wait`):** Cuentan con una caché interna inteligente. Durante un bucle (ciclo > 0), no pausarán la ejecución esperando un nuevo mensaje; en su lugar, harán "bypass" y devolverán automáticamente la última imagen o texto recibido. Esto evita que tu proceso se atasque pidiéndote confirmación en cada iteración. (Solo conecta la salida de ciclo actual al pin `current_loop_index`).
+* **Nodos Emisores (`Send`):** Incorporan un interruptor de silenciamiento (`active`). Si se conecta al índice del bucle usando un nodo como `CycleMuter`, puedes silenciar los envíos en ciclos secundarios (devolviendo True solo en el ciclo 0). ¡Esto evita hacer spam en tu chat de Telegram mientras se procesa un lote grande de imágenes!
+
 ## 🔗 Enrutamiento Avanzado: Uso de la Suite con n8n (Modo Webhook)
 
 Si utilizas el mismo token del Bot de Telegram en **n8n** (o Make/Zapier), Telegram bloqueará el método estándar `getUpdates` (Long Polling). Para resolver esto, nuestros nodos de Recepción (`Wait For...`) incluyen un modo **`n8n_webhook`**.
