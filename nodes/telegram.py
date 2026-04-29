@@ -687,6 +687,7 @@ class WaitForMessage:
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
                 "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             },
             "hidden": {
@@ -699,7 +700,11 @@ class WaitForMessage:
     FUNCTION = "wait_for_msg"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_msg(self, bot: TelegramBot, filter, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+    def wait_for_msg(self, bot: TelegramBot, filter, mode, timeout, trigger=None, active=True, current_loop_index=0, unique_id="0"):
+        if not active:
+            utils.log(f"🔇 [WaitForMessage] Silenciado (active=False). Omitiendo espera y devolviendo valores vacíos.")
+            return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger, {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}, "")
+
         global TELEGRAM_INTERNAL_CACHE
         idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
 
@@ -926,6 +931,7 @@ class WaitForTelegramImage:
             },
             "optional": {
                 "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
                 "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             },
             "hidden": {
@@ -938,7 +944,11 @@ class WaitForTelegramImage:
     FUNCTION = "wait_for_image"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_image(self, bot: TelegramBot, chat_id, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+    def wait_for_image(self, bot: TelegramBot, chat_id, mode, timeout, trigger=None, active=True, current_loop_index=0, unique_id="0"):
+        if not active:
+            utils.log(f"🔇 [WaitForTelegramImage] Silenciado (active=False). Omitiendo espera y devolviendo tensores vacíos.")
+            return (torch.zeros((1, 64, 64, 3)), torch.ones((1, 64, 64)), trigger)
+
         global TELEGRAM_INTERNAL_CACHE
         idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
 
@@ -1020,6 +1030,7 @@ class WaitForCallbackQuery:
             },
             "optional": {
                 "trigger": inputs.trigger, # Entrada de activación obligatoria para frenar el flujo
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
                 "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             },
             "hidden": {
@@ -1032,7 +1043,11 @@ class WaitForCallbackQuery:
     FUNCTION = "wait_for_click"
     CATEGORY = _CAT_RECEIVE
 
-    def wait_for_click(self, bot: TelegramBot, mode, timeout, trigger=None, current_loop_index=0, unique_id="0"):
+    def wait_for_click(self, bot: TelegramBot, mode, timeout, trigger=None, active=True, current_loop_index=0, unique_id="0"):
+        if not active:
+            utils.log(f"🔇 [WaitForCallbackQuery] Silenciado (active=False). Omitiendo espera y devolviendo dict vacío.")
+            return ("", 0, {}, trigger)
+
         global TELEGRAM_INTERNAL_CACHE
         idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
 
