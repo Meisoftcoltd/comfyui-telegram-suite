@@ -19,10 +19,17 @@ class AnyToINT(AnyToX):
     RETURN_NAMES = ("INT",)
 
     def convert(self, any):
+        if any is None:
+            return (0,)
         # Limpia espacios y comillas (" o ')
         clean_val = str(any).strip(' "\'')
-        # Pasamos por float primero por si el string es "1080.0"
-        return (int(float(clean_val)),)
+        if not clean_val:
+            return (0,)
+        try:
+            # Pasamos por float primero por si el string es "1080.0"
+            return (int(float(clean_val)),)
+        except ValueError:
+            return (0,)
 
 class INTToAny:
     @classmethod
@@ -46,8 +53,15 @@ class AnyToFLOAT(AnyToX):
     RETURN_NAMES = ("FLOAT",)
 
     def convert(self, any):
+        if any is None:
+            return (0.0,)
         clean_val = str(any).strip(' "\'')
-        return (float(clean_val),)
+        if not clean_val:
+            return (0.0,)
+        try:
+            return (float(clean_val),)
+        except ValueError:
+            return (0.0,)
 
 class FLOATToAny:
     @classmethod
@@ -71,7 +85,11 @@ class AnyToBOOLEAN(AnyToX):
     RETURN_NAMES = ("BOOLEAN",)
 
     def convert(self, any):
+        if any is None:
+            return (False,)
         clean_val = str(any).strip(' "\'').lower()
+        if not clean_val:
+            return (False,)
         return (clean_val in ['true', '1', 't', 'y', 'yes', 'on'],)
 
 class BOOLEANToAny:
