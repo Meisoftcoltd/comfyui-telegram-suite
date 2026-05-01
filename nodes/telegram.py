@@ -693,10 +693,11 @@ class SendChatAction:
                 "bot": inputs.bot,
                 "chat_id": inputs.chat_id,
                 "action": inputs.chat_action,
-                "message_thread_id": inputs.message_id,
             },
             "optional": {
-                "trigger": inputs.trigger
+                "message_thread_id": inputs.message_thread_id,
+                "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
             }
         }
 
@@ -706,7 +707,15 @@ class SendChatAction:
     FUNCTION = "send_chat_action"
     CATEGORY = _CAT_SEND
 
-    def send_chat_action(self, bot: TelegramBot, trigger=None, **params):
+    def send_chat_action(self, bot: TelegramBot, trigger=None, active=True, **params):
+        if not active:
+            import utils
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return True, trigger
+
+        import utils
+        params = utils.cleanup_params(params)
+
         result = bot("sendChatAction", params=params)
         return result, trigger
 
