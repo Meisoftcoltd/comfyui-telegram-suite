@@ -265,6 +265,23 @@ class LATENTToAny:
     def convert(self, LATENT):
         return (LATENT,)
 
+class InvertBOOLEAN:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "BOOLEAN": ("BOOLEAN", {"forceInput": True}),
+            },
+        }
+    FUNCTION = "invert"
+    CATEGORY = "Telegram Suite 🔽/converters"
+
+    RETURN_TYPES = ("BOOLEAN",)
+    RETURN_NAMES = ("BOOLEAN",)
+
+    def invert(self, BOOLEAN):
+        return (not BOOLEAN,)
+
 type_mapping = {
     "AnyToINT": AnyToINT,
     "INTToAny": INTToAny,
@@ -288,6 +305,7 @@ type_mapping = {
     "AUDIOToAny": AUDIOToAny,
     "AnyToLATENT": AnyToLATENT,
     "LATENTToAny": LATENTToAny,
+    "InvertBOOLEAN": InvertBOOLEAN,
 }
 name_mapping = {
     "AnyToINT": "Any To INT",
@@ -312,4 +330,5 @@ name_mapping = {
     "AUDIOToAny": "AUDIO To Any",
     "AnyToLATENT": "Any To LATENT",
     "LATENTToAny": "LATENT To Any",
+    "InvertBOOLEAN": "Invert BOOLEAN",
 }
