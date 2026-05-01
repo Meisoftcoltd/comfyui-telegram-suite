@@ -714,6 +714,34 @@ class SendChatAction:
         return ("BOOL", trigger_type)
 
 
+# 📝 Helper para leer texto de documentos (con importaciones seguras)
+def extract_text_from_document(file_path):
+    ext = file_path.lower().split('.')[-1]
+    text_content = ""
+    try:
+        if ext in ['txt', 'json', 'csv', 'md', 'xml']:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                text_content = f.read()
+        elif ext == 'pdf':
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    text_content = "\n".join([page.extract_text() or "" for page in reader.pages])
+            except ImportError:
+                utils.log("⚠️ PyPDF2 no instalado. Ignorando extracción de texto de PDF. Usa: pip install PyPDF2")
+        elif ext in ['doc', 'docx']:
+            try:
+                import docx
+                doc = docx.Document(file_path)
+                text_content = "\n".join([para.text for para in doc.paragraphs])
+            except ImportError:
+                utils.log("⚠️ python-docx no instalado. Ignorando extracción de texto de DOCX. Usa: pip install python-docx")
+    except Exception as e:
+        utils.log(f"⚠️ Error al intentar extraer texto del documento: {e}")
+
+    return text_content.strip()
+
 class WaitForMessage:
     @classmethod
     def INPUT_TYPES(cls):
@@ -818,6 +846,11 @@ class WaitForMessage:
                             f.write(b)
                         document_path = temp_path
 
+                        # 🧠 EXTRAER TEXTO DEL DOCUMENTO
+                        extracted = extract_text_from_document(document_path)
+                        if extracted:
+                            text = f"{text}\n\n{extracted}".strip() if text else extracted
+
                     utils.log(f"✅ [n8n] Message processed for chat {chat_id}")
                     result = (text, image, video_path, chat_id, trigger, audio_dict, document_path)
                     if idx == 0:
@@ -902,6 +935,11 @@ class WaitForMessage:
                             with open(temp_path, "wb") as f:
                                 f.write(b)
                             document_path = temp_path
+
+                            # 🧠 EXTRAER TEXTO DEL DOCUMENTO
+                            extracted = extract_text_from_document(document_path)
+                            if extracted:
+                                text = f"{text}\n\n{extracted}".strip() if text else extracted
 
                         utils.log(f"✅ [Polling] Message captured from chat {chat_id}")
                         result = (text, image, video_path, chat_id, trigger, audio_dict, document_path)
