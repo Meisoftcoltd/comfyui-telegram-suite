@@ -112,6 +112,28 @@ class {t}ToAny:
     def convert(self, {t}):
         return ({t},)
 """
+    script += """
+class InvertBOOLEAN:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "BOOLEAN": ("BOOLEAN", {"forceInput": True}),
+            },
+        }
+    FUNCTION = "invert"
+    CATEGORY = "Telegram Suite 🔽/converters"
+
+    RETURN_TYPES = ("BOOLEAN",)
+    RETURN_NAMES = ("BOOLEAN",)
+
+    def invert(self, BOOLEAN):
+        return (not BOOLEAN,)
+"""
+
+    type_mapping.append("\"InvertBOOLEAN\": InvertBOOLEAN,")
+    name_mapping.append("\"InvertBOOLEAN\": \"Invert BOOLEAN\",")
+
     script += "\ntype_mapping = {\n    " + "\n    ".join([l for l in type_mapping]) + "\n}"
     script += "\nname_mapping = {\n    " + "\n    ".join([l for l in name_mapping]) + "\n}"
 
