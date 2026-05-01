@@ -1,4 +1,5 @@
 import json
+import io
 import logging
 import mimetypes
 from typing import Any
@@ -221,6 +222,44 @@ class SendMessage(SendGeneric):
         message = bot("sendMessage", params=params)
 
         return message, message["message_id"], trigger
+
+class SendTextAsFile(SendGeneric):
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "bot": inputs.bot,
+                "chat_id": inputs.chat_id,
+                "text": inputs.text,
+                "filename": ("STRING", {"default": "texto.txt"}),
+            },
+            "optional": {
+                "trigger": inputs.trigger,
+                "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+            }
+        }
+
+    FUNCTION = "send_text_as_file"
+
+    def send_text_as_file(self, bot: TelegramBot, text, filename, trigger=None, active=True, **params):
+        if not active:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+            return ({}, 0, trigger)
+
+        params = utils.cleanup_params(params)
+
+        if not filename:
+            filename = "prediccion.txt"
+        elif not filename.endswith(".txt") and "." not in filename:
+            filename += ".txt"
+
+        file_obj = io.BytesIO(text.encode('utf-8'))
+        file_obj.name = filename
+
+        message = bot("sendDocument", params=params, files={"document": file_obj})
+
+        return message, message["message_id"], trigger
+
 
 class SendImage(SendGeneric):
     @classmethod
