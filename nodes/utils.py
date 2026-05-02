@@ -36,7 +36,7 @@ def load_config() -> Config:
         cfg = {
             "bots": {
                 "<YourBotName>": "<YourToken>"
-            }, 
+            },
             "chats": {
                 "<YourChatName>": 0
             }
@@ -44,7 +44,7 @@ def load_config() -> Config:
         write_json(config_path, cfg)
         log(f"You need to add a bot to the config file at {config_path}.")
         return cfg # type: ignore
-    
+
     log("Reading config")
     return read_json(config_path) # type: ignore
 
@@ -72,7 +72,7 @@ def guess_mimetype(file_name: str) -> str:
     return mimetypes.guess_type(file_name)[0] or "application/octet-stream"
 
 def images_to_bytes(images, format="PNG") -> list[bytes]:
-    bytes_images = [] 
+    bytes_images = []
     for image in images:
         i = 255. * image.cpu().numpy()
         img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
@@ -92,7 +92,22 @@ def audio_to_wav_bytes(audio, format="WAV") -> bytes:
     sample_rate = audio.get("sample_rate", 44100)
 
     buf = io.BytesIO()
-    torchaudio.save(buf, waveform, sample_rate, format="wav") # type: ignore
+
+    try:
+        # En versiones nuevas de torchaudio, torchcodec falla con BytesIO.
+        # Forzamos el uso del backend antiguo / soundfile para buffers de memoria.
+        import torchaudio
+        torchaudio.save(buf, waveform, sample_rate, format="wav", backend="soundfile")
+    except Exception as e:
+        log(f"⚠️ Aviso: Fallo guardando con soundfile, intentando método fallback. Error: {e}")
+        # Método Fallback: Escribir el WAV a mano usando scipy o la librería estándar.
+        # ComfyUI suele tener scipy instalado.
+        try:
+            from scipy.io import wavfile
+            wavfile.write(buf, sample_rate, waveform.T.cpu().numpy())
+        except ImportError:
+            raise RuntimeError("No se pudo convertir el audio. Torchaudio falló y Scipy no está instalado.")
+
     buf.seek(0)
     b = buf.getvalue()
     buf.close()
@@ -100,11 +115,11 @@ def audio_to_wav_bytes(audio, format="WAV") -> bytes:
 
 def convert_wav_bytes_ffmpeg(input_bytes: bytes, output_format: str = "mp3") -> bytes:
     cmd = [
-        "ffmpeg", 
-        "-y",  
-        "-f", "wav", 
-        "-i", "pipe:0", 
-        # "-f", output_format, 
+        "ffmpeg",
+        "-y",
+        "-f", "wav",
+        "-i", "pipe:0",
+        # "-f", output_format,
         "-f", "opus" if output_format == "ogg" else output_format, #TODO: test (using libopus)
         "pipe:1"
     ]
@@ -135,7 +150,7 @@ class ParseJSON:
 
     FUNCTION = "parse_json"
     CATEGORY = _CATEGORY
-    
+
     def parse_json(self, json_string):
         return (json.loads(json_string),)
 
