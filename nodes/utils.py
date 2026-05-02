@@ -119,10 +119,16 @@ def convert_wav_bytes_ffmpeg(input_bytes: bytes, output_format: str = "mp3") -> 
         "-y",
         "-f", "wav",
         "-i", "pipe:0",
-        # "-f", output_format,
-        "-f", "opus" if output_format == "ogg" else output_format, #TODO: test (using libopus)
-        "pipe:1"
     ]
+
+    if output_format == "ogg":
+        # Telegram requires Opus in an Ogg container (f=opus).
+        # We use libopus explicitly to ensure compatibility.
+        cmd += ["-acodec", "libopus", "-f", "opus"]
+    else:
+        cmd += ["-f", output_format]
+
+    cmd.append("pipe:1")
 
     result = subprocess.run(
         cmd,
