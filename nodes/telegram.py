@@ -871,7 +871,7 @@ class WaitForMessage:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No message received from n8n.")
                     return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger, {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}, "")
-                time.sleep(1)
+                time.sleep(0.1)
 
         else: # long_polling mode
             utils.log(f"⏳ [Polling Mode] Waiting for direct Telegram message... (Timeout: {timeout}s)")
@@ -964,7 +964,7 @@ class WaitForMessage:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No direct messages in Telegram.")
                     return ("", torch.zeros((1, 64, 64, 3)), "", 0, trigger, {"waveform": torch.zeros((1, 1, 1024), dtype=torch.float32), "sample_rate": 44100}, "")
-                time.sleep(1)
+                time.sleep(0.1)
 
 class SendMessageButtons(SendGeneric):
     @classmethod
@@ -1073,7 +1073,7 @@ class WaitForTelegramImage:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
                     raise Exception("Timeout: No se recibió ninguna imagen de Telegram")
-                time.sleep(1)
+                time.sleep(0.1)
 
         else: # Modo long_polling
             utils.log(f"⏳ [Modo Polling] Esperando imagen directa de Telegram... (Timeout: {timeout}s)")
@@ -1108,7 +1108,7 @@ class WaitForTelegramImage:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No se recibió ninguna imagen de Telegram.")
                     raise Exception("Timeout: No se recibió ninguna imagen de Telegram")
-                time.sleep(1)
+                time.sleep(0.1)
 
 class WaitForCallbackQuery:
     @classmethod
@@ -1166,7 +1166,7 @@ class WaitForCallbackQuery:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: n8n no respondió.")
                     return ("TIMEOUT", 0, {}, trigger)
-                time.sleep(1)
+                time.sleep(0.1)
 
         else: # Modo long_polling original
             utils.log(f"⏳ [Modo Polling] Esperando clic directo de Telegram... (Timeout: {timeout}s)")
@@ -1196,4 +1196,4 @@ class WaitForCallbackQuery:
                 if time.time() - start_time > timeout:
                     utils.log("❌ Timeout: No hubo clics en Telegram.")
                     return ("TIMEOUT", 0, {}, trigger)
-                time.sleep(1)
+                time.sleep(0.1)
