@@ -12,7 +12,6 @@ from server import PromptServer
 from aiohttp import web
 
 import httpx
-from colorama import Fore
 
 from . import utils
 from . import inputs
