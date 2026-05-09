@@ -1,19 +1,18 @@
 import io
-import os
 import mimetypes
 import json
 import subprocess
 from typing import NotRequired, TypedDict, Any
 from pathlib import Path
 
-import torchaudio
+import torch
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 UINT64_MIN = -9223372036854775808
 UINT64_MAX = 9223372036854775807
 
-USER_DIR = Path(os.getcwd()) / "user" / "default"
+USER_DIR = Path.cwd() / "user" / "default"
 
 _CATEGORY = "Telegram Suite 🔽/4. ⚙️ Utils"
 
@@ -162,10 +161,6 @@ class ParseJSON:
 
 
 def bytes_to_image(image_bytes: bytes):
-    from PIL import Image, ImageOps
-    import numpy as np
-    import torch
-
     img = Image.open(io.BytesIO(image_bytes))
     img = ImageOps.exif_transpose(img)
     image = img.convert("RGB")
