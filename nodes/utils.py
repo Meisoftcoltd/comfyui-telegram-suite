@@ -70,6 +70,22 @@ def write_json(path: Path, data: dict, *, indent=4) -> None:
 def guess_mimetype(file_name: str) -> str:
     return mimetypes.guess_type(file_name)[0] or "application/octet-stream"
 
+def get_temp_path(name: str) -> str:
+    """
+    Sanitizes a filename and returns a safe path within the 'temp' directory.
+    Prevents path traversal by ensuring the result is always inside 'temp'.
+    """
+    # 1. Basic sanitization of path separators
+    clean_name = os.path.basename(name.replace("\\", os.sep))
+
+    # 2. Prevent special names that could still escape or be invalid
+    if clean_name in [".", "..", ""]:
+        import uuid
+        clean_name = f"file_{uuid.uuid4().hex[:8]}"
+
+    # 3. Join with absolute temp directory
+    return os.path.join(os.getcwd(), "temp", clean_name)
+
 def images_to_bytes(images, format="PNG") -> list[bytes]:
     bytes_images = []
     for image in images:
