@@ -827,8 +827,7 @@ class WaitForMessage:
 
                     if has_video and filter in ["All", "Video"]:
                         b, name = bot.download_file(video_file_id)
-                        name = os.path.basename(name.replace("\\", os.sep))
-                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        temp_path = utils.get_temp_path(name)
                         os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                         with open(temp_path, "wb") as f:
                             f.write(b)
@@ -836,8 +835,7 @@ class WaitForMessage:
 
                     if has_audio and filter in ["All", "Audio"]:
                         b, name = bot.download_file(audio_file_id)
-                        name = os.path.basename(name.replace("\\", os.sep))
-                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        temp_path = utils.get_temp_path(name)
                         os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                         with open(temp_path, "wb") as f:
                             f.write(b)
@@ -850,8 +848,7 @@ class WaitForMessage:
 
                     if has_document and filter in ["All", "Document"]:
                         b, name = bot.download_file(document_file_id)
-                        name = os.path.basename(name.replace("\\", os.sep))
-                        temp_path = os.path.join(os.getcwd(), "temp", name)
+                        temp_path = utils.get_temp_path(name)
                         os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                         with open(temp_path, "wb") as f:
                             f.write(b)
@@ -918,8 +915,7 @@ class WaitForMessage:
                         if has_video and filter in ["All", "Video"]:
                             file_id = msg["video"]["file_id"]
                             b, name = bot.download_file(file_id)
-                            name = os.path.basename(name.replace("\\", os.sep))
-                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            temp_path = utils.get_temp_path(name)
                             os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                             with open(temp_path, "wb") as f:
                                 f.write(b)
@@ -928,8 +924,7 @@ class WaitForMessage:
                         if has_audio and filter in ["All", "Audio"]:
                             file_id = msg.get("audio", msg.get("voice"))["file_id"]
                             b, name = bot.download_file(file_id)
-                            name = os.path.basename(name.replace("\\", os.sep))
-                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            temp_path = utils.get_temp_path(name)
                             os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                             with open(temp_path, "wb") as f:
                                 f.write(b)
@@ -943,8 +938,7 @@ class WaitForMessage:
                         if has_document and filter in ["All", "Document"]:
                             file_id = msg["document"]["file_id"]
                             b, name = bot.download_file(file_id)
-                            name = os.path.basename(name.replace("\\", os.sep))
-                            temp_path = os.path.join(os.getcwd(), "temp", name)
+                            temp_path = utils.get_temp_path(name)
                             os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                             with open(temp_path, "wb") as f:
                                 f.write(b)
