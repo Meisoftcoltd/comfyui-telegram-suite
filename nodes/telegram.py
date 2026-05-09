@@ -313,14 +313,15 @@ class SendImage(SendGeneric):
             return message, message["message_id"], trigger
 
         else:
+            file_name = file_name or "image"
+            mimetype = utils.guess_mimetype(f"image.{format.lower()}")
             if group:
                 # Multiple images - send as media group
                 media = []
                 files = {}
-                file_name = file_name or "image"
                 for i, b in enumerate(images_bytes):
                     name = f"{file_name}{i}.{format.lower()}"
-                    files[f"{id}{i}"] = (name, b, utils.guess_mimetype(name))
+                    files[f"{id}{i}"] = (name, b, mimetype)
 
                     m: dict[str, Any] = {
                         "type": "document" if send_as_file else "photo",
@@ -361,7 +362,7 @@ class SendImage(SendGeneric):
                         bot(
                             "sendDocument" if send_as_file else "sendPhoto",
                             params=params,
-                            files={id: (name, image_bytes, utils.guess_mimetype(name))}
+                            files={id: (name, image_bytes, mimetype)}
                         )
                     )
                 return messages[-1], messages[-1]["message_id"], trigger
