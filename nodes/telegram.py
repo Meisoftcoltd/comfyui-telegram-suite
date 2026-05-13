@@ -206,14 +206,16 @@ class SendMessage(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_message"
 
-    def send_message(self, bot: TelegramBot, trigger=None, active=True, **params):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_message(self, bot: TelegramBot, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         params = utils.cleanup_params(params)
@@ -235,14 +237,16 @@ class SendTextAsFile(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_text_as_file"
 
-    def send_text_as_file(self, bot: TelegramBot, text, filename, trigger=None, active=True, **params):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_text_as_file(self, bot: TelegramBot, text, filename, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         params = utils.cleanup_params(params)
@@ -283,14 +287,16 @@ class SendImage(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_photo"
 
-    def send_photo(self, bot: TelegramBot, IMAGE, group, send_as_file, file_name, format, trigger=None, active=True, **params):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_photo(self, bot: TelegramBot, IMAGE, group, send_as_file, file_name, format, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         id = "document" if send_as_file else "photo"
@@ -387,14 +393,16 @@ class SendVideo(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_video"
 
-    def send_video(self, bot: TelegramBot, video, send_as, trigger=None, active=True, **params):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_video(self, bot: TelegramBot, video, send_as, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         params = utils.cleanup_params(params)
@@ -440,14 +448,16 @@ class SendAudio(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_audio"
 
-    def send_audio(self, bot: TelegramBot, audio, send_as, file_name, trigger=None, active=True, **params):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_audio(self, bot: TelegramBot, audio, send_as, file_name, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         params = utils.cleanup_params(params)
@@ -698,6 +708,7 @@ class SendChatAction:
                 "message_thread_id": inputs.message_thread_id,
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
@@ -707,13 +718,12 @@ class SendChatAction:
     FUNCTION = "send_chat_action"
     CATEGORY = _CAT_SEND
 
-    def send_chat_action(self, bot: TelegramBot, trigger=None, active=True, **params):
-        if not active:
-            import utils
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_chat_action(self, bot: TelegramBot, trigger=None, active=True, current_loop_index=0, **params):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return True, trigger
 
-        import utils
         params = utils.cleanup_params(params)
 
         result = bot("sendChatAction", params=params)
@@ -975,14 +985,16 @@ class SendMessageButtons(SendGeneric):
             "optional": {
                 "trigger": inputs.trigger,
                 "active": ("BOOLEAN", {"default": True, "forceInput": False}),
+                "current_loop_index": ("INT", {"default": 0, "forceInput": True}),
             }
         }
 
     FUNCTION = "send_menu"
 
-    def send_menu(self, bot: TelegramBot, text, buttons, columns, chat_id, trigger=None, active=True, **kwargs):
-        if not active:
-            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False).")
+    def send_menu(self, bot: TelegramBot, text, buttons, columns, chat_id, trigger=None, active=True, current_loop_index=0, **kwargs):
+        idx = current_loop_index[0] if isinstance(current_loop_index, list) else current_loop_index
+        if not active or idx > 0:
+            utils.log(f"🔇 [{self.__class__.__name__}] Silenciado por control de bucle (active=False o ciclo > 0).")
             return ({}, 0, trigger)
 
         # 1. Extraemos todos los botones en una lista plana
